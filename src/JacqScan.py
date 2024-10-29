@@ -73,15 +73,17 @@ class Digitizer:
         self.box_pattern = detect(self.target, self.dk, self.ds, 10*self.ds, 10*self.dk, limit)
         self.showBox()
 
+        # save direct to pattern
+        self.saveBoxToPattern()
+
       # copy
       if k == ord("c"):
         self.box_copy = self.box_pattern.copy()
 
       # paste
       if k == ord("v"):
-        self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_copy
+        self.saveBoxToPattern()
         self.showBox()
-        self.showPart()
 
       # # save
       # if k == 13:
@@ -90,13 +92,17 @@ class Digitizer:
 
       if k == 27:
         # save direct to pattern
-        self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_pattern
+        self.saveBoxToPattern()
 
         cv.destroyAllWindows()
         break
 
 
     return self.pattern
+  
+  def saveBoxToPattern(self):
+    self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_pattern
+    self.showPart()
 
   def showBox(self):
     invmat = np.linalg.inv(self.matrix)
@@ -182,6 +188,9 @@ class Digitizer:
       else: self.box_pattern[iy,ix] = 255
 
       self.showBox()
+
+      # save direct to pattern
+      self.saveBoxToPattern()
 
     if event == cv.EVENT_RBUTTONDOWN:
       if not self.shift:

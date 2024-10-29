@@ -5,13 +5,37 @@ import sys, os
 from functools import partial
 
 from PySide6 import QtWidgets, QtGui
-from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton
+from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox
 import JacqScan, JacqPattern, JacqCard, JacqWeave
 
 class Fabric:
 
   def __init__(self, path):
     self.path = path
+
+    # init empty project
+    if not os.path.exists(self.path+"/config.json"):
+      # create config
+      self.config = {
+        "general": {},
+        "pattern": {
+          "nk": 0,
+          "ns": 0,
+          "dk": 16,
+          "ds": 5
+        },
+        "scans": [
+        ],
+        "cards": {}
+      }
+      self.saveConfig()
+
+      # create subdirs
+      os.mkdir(path+"/pattern")
+      os.mkdir(path+"/scans")
+      os.mkdir(path+"/cards")
+      os.mkdir(path+"/textures")
+
     self.loadConfig()
 
   def loadConfig(self):
@@ -145,19 +169,19 @@ class MainWindow(QtWidgets.QMainWindow):
     actionQuit = QtGui.QAction("Beenden", self)
     actionQuit.triggered.connect(self.close)
 
-    actionNew = QtGui.QAction("Muster anlegen", self)
+    actionNew = QtGui.QAction("Muster Anlegen", self)
     actionNew.triggered.connect(self.newProject)
 
     actionOpen = QtGui.QAction("Muster Öffnen", self)
     actionOpen.triggered.connect(self.openProject)
 
-    actionEditPattern = QtGui.QAction("Patrone Bearbeiten", self)
+    actionEditPattern = QtGui.QAction("Ausschnitte kopieren", self)
     actionEditPattern.triggered.connect(self.editPattern)
 
     actionRenderPattern = QtGui.QAction("Patrone Ausgeben", self)
     actionRenderPattern.triggered.connect(self.renderPattern)
 
-    actionInitPattern = QtGui.QAction("Patrone Zurücksetzen", self)
+    actionInitPattern = QtGui.QAction("Patrone Initialisieren", self)
     actionInitPattern.triggered.connect(self.initPattern)
 
     actionAddScan = QtGui.QAction("Ausschnitt hinzufügen", self)
@@ -175,8 +199,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     self.tab1 = QtWidgets.QWidget()
     toolbar = QtWidgets.QToolBar()
-    toolbar.addAction(actionEditPattern)
     toolbar.addAction(actionAddScan)
+    toolbar.addAction(actionEditPattern)
     layout = QtWidgets.QVBoxLayout()
     layout.addWidget(toolbar)
     self.parts = QtWidgets.QWidget()
@@ -191,17 +215,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     menubar = self.menuBar()
     project = QtWidgets.QMenu("Muster")
+    project.addAction(actionNew)
     project.addAction(actionOpen)
     project.addSeparator()
     project.addAction(actionQuit)
     menubar.addMenu(project)
 
     pattern = QtWidgets.QMenu("Patrone")
-    pattern.addAction(actionRenderPattern)
-    pattern.addSeparator()
-    pattern.addAction(actionEditPattern)
-    pattern.addSeparator()
     pattern.addAction(actionInitPattern)
+    pattern.addAction(actionRenderPattern)
     menubar.addMenu(pattern)
 
     cards = QtWidgets.QMenu("Karten")
@@ -251,8 +273,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
   def newProject(self):
-    path = QFileDialog.getExistingDirectory(self, "Ordner auswählen", ".", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-    self.updateViews()
+    path = QFileDialog.getExistingDirectory(self, "Leeren Ordner auswählen", ".", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+    if path:
+      config["last_project"] = path
+      saveAppConfig()
+      self.fabric = Fabric(path)
+      self.initPattern()
+      self.updateViews()
     
   def openProject(self):
     path = QFileDialog.getExistingDirectory(self, "Ordner auswählen", "./data", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
@@ -274,7 +301,39 @@ class MainWindow(QtWidgets.QMainWindow):
     self.fabric.editPattern()
 
   def initPattern(self):
-    self.fabric.initPattern()
+    dialog = QtWidgets.QDialog(self)
+    layout = QFormLayout()
+
+    nk = QLineEdit(str(self.fabric.config["pattern"]["nk"]))
+    ns = QLineEdit(str(self.fabric.config["pattern"]["ns"]))
+    div = QComboBox()
+    div.addItems(["4-16", "5-16"])
+    div.setCurrentText(str(self.fabric.config["pattern"]["ds"]) + "-" + str(self.fabric.config["pattern"]["dk"]))
+
+    def save():
+      self.fabric.config["pattern"]["nk"] = int(nk.text())
+      self.fabric.config["pattern"]["ns"] = int(ns.text())
+      self.fabric.config["pattern"]["dk"] = int(div.currentText().split("-")[1])
+      self.fabric.config["pattern"]["ds"] = int(div.currentText().split("-")[0])
+      self.fabric.saveConfig()
+
+      self.fabric.initPattern()
+
+      dialog.close()
+
+    ok = QPushButton("OK")
+    ok.pressed.connect(save)
+
+    layout.addRow("Anzahl Ketten:", nk)
+    layout.addRow("Anzahl Schüsse:", ns)
+    layout.addRow("Teilung:", div)
+    layout.addWidget(ok)
+
+    dialog.setLayout(layout)
+    dialog.setWindowTitle("Muster festlegen")
+
+    dialog.exec()
+
 
   def renderPattern(self):
     self.fabric.renderPattern()
@@ -315,6 +374,21 @@ class MainWindow(QtWidgets.QMainWindow):
     point_bl = QPushButton(str(scan["point_bl"]))
     point_br = QPushButton(str(scan["point_br"]))
 
+    def save():
+      scan["limit"] = int(limit.text())
+      scan["kmin"] = int(kmin.text())
+      scan["kmax"] = int(kmax.text())
+      scan["smin"] = int(smin.text())
+      scan["smax"] = int(smax.text())
+      self.fabric.saveConfig()
+
+      self.updateViews()
+
+      dialog.close()
+
+    ok = QPushButton("OK")
+    ok.pressed.connect(save)
+
     layout.addWidget(filename, 0, 0, 1, 2)
     layout.addWidget(limit, 0, 2)
     layout.addWidget(kmin, 2, 0)
@@ -325,6 +399,7 @@ class MainWindow(QtWidgets.QMainWindow):
     layout.addWidget(point_tr, 1, 2)
     layout.addWidget(point_bl, 3, 0)
     layout.addWidget(point_br, 3, 2)
+    layout.addWidget(ok, 4, 2, 1, 2)
 
     dialog.setLayout(layout)
 
@@ -357,16 +432,6 @@ class MainWindow(QtWidgets.QMainWindow):
     point_br.pressed.connect(br_pressed)
 
     dialog.exec()
-
-    scan["limit"] = int(limit.text())
-    scan["kmin"] = int(kmin.text())
-    scan["kmax"] = int(kmax.text())
-    scan["smin"] = int(smin.text())
-    scan["smax"] = int(smax.text())
-
-    self.updateViews()
-
-    self.fabric.saveConfig()
 
 
 #############################################################################

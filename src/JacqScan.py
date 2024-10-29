@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 
 class Digitizer:
-  def run(self, pattern, scan, points, kmin, kmax, smin, smax, dk, ds):
+  def run(self, pattern, scan, points, kmin, kmax, smin, smax, dk, ds, limit):
     self.bs = 0
     self.bk = 0
 
@@ -48,6 +48,7 @@ class Digitizer:
     cv.namedWindow('box')
     cv.setMouseCallback('box', self.box_event)
 
+    self.box_pattern = self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk]
     self.showPart()
     self.showBox()
 
@@ -69,27 +70,28 @@ class Digitizer:
 
       # detect
       if k == 32:
-        self.box_pattern = detect(self.target, self.dk, self.ds, 10*self.ds, 10*self.dk)
-
+        self.box_pattern = detect(self.target, self.dk, self.ds, 10*self.ds, 10*self.dk, limit)
         self.showBox()
 
       # copy
       if k == ord("c"):
         self.box_copy = self.box_pattern.copy()
 
-      # copy
+      # paste
       if k == ord("v"):
         self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_copy
         self.showBox()
         self.showPart()
 
-
-      # save
-      if k == 13:
-        self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_pattern
-        self.showPart()
+      # # save
+      # if k == 13:
+      #   self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_pattern
+      #   self.showPart()
 
       if k == 27:
+        # save direct to pattern
+        self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_pattern
+
         cv.destroyAllWindows()
         break
 
@@ -174,7 +176,6 @@ class Digitizer:
     if event == cv.EVENT_LBUTTONUP:
       ix = int((x-self.m) / 10 / self.ds)
       iy = int((y-self.m) / 10 / self.dk)
-      print(ix,iy)
       
       if self.box_pattern[iy,ix] == 0: self.box_pattern[iy,ix] = 255
       elif self.box_pattern[iy,ix] == 255: self.box_pattern[iy,ix] = 0
@@ -184,7 +185,6 @@ class Digitizer:
 
     if event == cv.EVENT_RBUTTONDOWN:
       if not self.shift:
-        print("rbd")
         self.shift = True
         self.shiftx = x
         self.shifty = y
@@ -205,9 +205,9 @@ class Digitizer:
         self.showBox()
 
 ###################################################################
-def detect(src, nx, ny, fx, fy):
+def detect(src, nx, ny, fx, fy, limit):
   mask = cv.cvtColor(src, cv.COLOR_BGR2HLS)
-  mask = cv.inRange(mask[:,:,1], 160, 255)
+  mask = cv.inRange(mask[:,:,1], limit, 255)
   # cv.imshow("mask1", mask)
 
   target = np.zeros((ny,nx), np.uint8)
@@ -254,8 +254,6 @@ def selectScanPoint(pathname):
         xs = xmin+int(x/4)
         ys = ymin+int(y/4)
         stage = 2
-
-      print(x,y,xs,ys)
 
   def update_view():
     nonlocal stage, xs, ys, xmin, xmax, ymin, ymax

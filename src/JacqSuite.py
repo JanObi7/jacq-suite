@@ -1,7 +1,11 @@
 import numpy as np
 import cv2 as cv
 import json
+import sys, os
+from functools import partial
 
+from PySide6 import QtWidgets, QtGui
+from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton
 import JacqScan, JacqPattern, JacqCard, JacqWeave
 
 class Fabric:
@@ -86,6 +90,7 @@ class Fabric:
   def createScan(self):
     scan = {
       "filename": "...",
+      "limit": 150,
       "kmin": 0,
       "kmax": 0,
       "smin": 0,
@@ -111,7 +116,7 @@ class Fabric:
     scan = cv.imread(self.path+"/scans/"+part["filename"])
     points = [part["point_tl"], part["point_tr"], part["point_bl"], part["point_br"]]
 
-    self.pattern = JacqScan.Digitizer().run(self.pattern, scan, points, part["kmin"], part["kmax"], part["smin"], part["smax"], self.config["pattern"]["dk"], self.config["pattern"]["ds"])
+    self.pattern = JacqScan.Digitizer().run(self.pattern, scan, points, part["kmin"], part["kmax"], part["smin"], part["smax"], self.config["pattern"]["dk"], self.config["pattern"]["ds"], part["limit"])
 
     self.savePattern()
 
@@ -123,3 +128,270 @@ class Fabric:
     self.loadPattern()
     texture = JacqWeave.render(self.pattern, self.config["pattern"]["dk"], self.config["pattern"]["ds"])
     cv.imwrite(self.path+"/textures/texture.png", texture)
+
+
+#############################################################################
+class MainWindow(QtWidgets.QMainWindow):
+
+  def __init__(self):
+    super().__init__()
+
+    # data
+    if config["last_project"]:
+      self.fabric = Fabric(config["last_project"])
+    else:
+      self.fabric = None
+
+    actionQuit = QtGui.QAction("Beenden", self)
+    actionQuit.triggered.connect(self.close)
+
+    actionNew = QtGui.QAction("Muster anlegen", self)
+    actionNew.triggered.connect(self.newProject)
+
+    actionOpen = QtGui.QAction("Muster Öffnen", self)
+    actionOpen.triggered.connect(self.openProject)
+
+    actionEditPattern = QtGui.QAction("Patrone Bearbeiten", self)
+    actionEditPattern.triggered.connect(self.editPattern)
+
+    actionRenderPattern = QtGui.QAction("Patrone Ausgeben", self)
+    actionRenderPattern.triggered.connect(self.renderPattern)
+
+    actionInitPattern = QtGui.QAction("Patrone Zurücksetzen", self)
+    actionInitPattern.triggered.connect(self.initPattern)
+
+    actionAddScan = QtGui.QAction("Ausschnitt hinzufügen", self)
+    actionAddScan.triggered.connect(self.createScan)
+
+    actionGenerateCards = QtGui.QAction("Karten Ausgeben", self)
+    actionGenerateCards.triggered.connect(self.generateCards)
+
+    actionRenderTexture = QtGui.QAction("Textur Ausgeben", self)
+    actionRenderTexture.triggered.connect(self.renderTexture)
+
+    self.resize(640,400)
+    self.setWindowTitle("JacqSuite")
+    self.setWindowIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), 'JacqSuite.ico')))
+
+    self.tab1 = QtWidgets.QWidget()
+    toolbar = QtWidgets.QToolBar()
+    toolbar.addAction(actionEditPattern)
+    toolbar.addAction(actionAddScan)
+    layout = QtWidgets.QVBoxLayout()
+    layout.addWidget(toolbar)
+    self.parts = QtWidgets.QWidget()
+    self.parts.setLayout(QtWidgets.QGridLayout())
+    layout.addWidget(self.parts)
+    self.tab1.setLayout(layout)
+
+    tabs = QTabWidget()
+    tabs.addTab(self.tab1, "Ausschnitte")
+    self.setCentralWidget(tabs)
+
+
+    menubar = self.menuBar()
+    project = QtWidgets.QMenu("Muster")
+    project.addAction(actionOpen)
+    project.addSeparator()
+    project.addAction(actionQuit)
+    menubar.addMenu(project)
+
+    pattern = QtWidgets.QMenu("Patrone")
+    pattern.addAction(actionRenderPattern)
+    pattern.addSeparator()
+    pattern.addAction(actionEditPattern)
+    pattern.addSeparator()
+    pattern.addAction(actionInitPattern)
+    menubar.addMenu(pattern)
+
+    cards = QtWidgets.QMenu("Karten")
+    cards.addAction(actionGenerateCards)
+    menubar.addMenu(cards)
+
+    menu = QtWidgets.QMenu("Textur")
+    menu.addAction(actionRenderTexture)
+    menubar.addMenu(menu)
+
+    self.updateViews()
+
+  def updateViews(self):
+    if self.fabric:
+      self.setWindowTitle("JacqSuite - " + self.fabric.path)
+
+      layout = self.parts.layout()
+      for i in reversed(range(layout.count())):
+        widget = layout.itemAt(i).widget()
+        layout.removeWidget(widget)
+        widget.setParent(None)
+
+      for i in range(len(self.fabric.config["scans"])):
+        scan = self.fabric.config["scans"][i]
+        name = QtWidgets.QLabel(scan["filename"])
+        layout.addWidget(name, i,1)
+        ranges = QtWidgets.QLabel(f"K: {scan["kmin"]} .. {scan["kmax"]}, S: {scan["smin"]} .. {scan["smax"]}")
+        layout.addWidget(ranges, i, 2)
+        digit = QtWidgets.QPushButton("Digitalisieren")
+        digit.pressed.connect(partial(self.digitizeScan, i))
+        layout.addWidget(digit, i,3)
+        edit = QtWidgets.QPushButton("Bearbeiten")
+        edit.pressed.connect(partial(self.editScan, i))
+        layout.addWidget(edit, i, 4)
+        remove = QtWidgets.QPushButton("Löschen")
+        remove.pressed.connect(partial(self.deleteScan, i))
+        layout.addWidget(remove, i, 5)
+
+    else:
+      self.setWindowTitle("JacqSuite")
+
+      layout = self.parts.layout()
+      for i in reversed(range(layout.count())):
+        widget = layout.itemAt(i).widget()
+        layout.removeWidget(widget)
+        widget.setParent(None)
+
+
+  def newProject(self):
+    path = QFileDialog.getExistingDirectory(self, "Ordner auswählen", ".", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+    self.updateViews()
+    
+  def openProject(self):
+    path = QFileDialog.getExistingDirectory(self, "Ordner auswählen", "./data", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+    if path:
+      config["last_project"] = path
+      saveAppConfig()
+      self.fabric = Fabric(path)
+      self.updateViews()
+
+  def closeProject(self):
+    if self.fabric:
+      config["last_project"] = None
+      saveAppConfig()
+      self.fabric.saveConfig()
+      self.fabric = None
+      self.updateViews()
+
+  def editPattern(self):
+    self.fabric.editPattern()
+
+  def initPattern(self):
+    self.fabric.initPattern()
+
+  def renderPattern(self):
+    self.fabric.renderPattern()
+
+  def generateCards(self):
+    self.fabric.generateCards()
+
+  def renderTexture(self):
+    self.fabric.renderTexture()
+
+  def createScan(self):
+    idx = self.fabric.createScan()
+    self.updateViews()
+    self.editScan(idx)
+
+  def deleteScan(self, idx):
+    self.fabric.deleteScan(idx)
+    self.updateViews()
+
+  def digitizeScan(self, idx):
+    self.fabric.digitizeScan(idx)
+    self.updateViews()
+
+  def editScan(self, idx):
+    scan = self.fabric.config["scans"][idx]
+
+    dialog = QtWidgets.QDialog(self)
+    layout = QGridLayout()
+
+    filename = QPushButton(scan["filename"])
+    limit = QLineEdit(str(scan["limit"]))
+    kmin = QLineEdit(str(scan["kmin"]))
+    kmax = QLineEdit(str(scan["kmax"]))
+    smin = QLineEdit(str(scan["smin"]))
+    smax = QLineEdit(str(scan["smax"]))
+    point_tl = QPushButton(str(scan["point_tl"]))
+    point_tr = QPushButton(str(scan["point_tr"]))
+    point_bl = QPushButton(str(scan["point_bl"]))
+    point_br = QPushButton(str(scan["point_br"]))
+
+    layout.addWidget(filename, 0, 0, 1, 2)
+    layout.addWidget(limit, 0, 2)
+    layout.addWidget(kmin, 2, 0)
+    layout.addWidget(kmax, 2, 2)
+    layout.addWidget(smin, 3, 1)
+    layout.addWidget(smax, 1, 1)
+    layout.addWidget(point_tl, 1, 0)
+    layout.addWidget(point_tr, 1, 2)
+    layout.addWidget(point_bl, 3, 0)
+    layout.addWidget(point_br, 3, 2)
+
+    dialog.setLayout(layout)
+
+    def fn_pressed():
+      pathname, _ = QFileDialog.getOpenFileName(caption="Scan auswählen", dir=self.fabric.path+"/scans")
+      if pathname:
+        scan["filename"] = os.path.basename(pathname)
+        filename.setText(scan["filename"])
+
+    def tl_pressed():
+      scan["point_tl"] = JacqScan.selectScanPoint(self.fabric.path+"/scans/"+scan["filename"])
+      point_tl.setText(str(scan["point_tl"]))
+
+    def tr_pressed():
+      scan["point_tr"] = JacqScan.selectScanPoint(self.fabric.path+"/scans/"+scan["filename"])
+      point_tr.setText(str(scan["point_tr"]))
+
+    def bl_pressed():
+      scan["point_bl"] = JacqScan.selectScanPoint(self.fabric.path+"/scans/"+scan["filename"])
+      point_bl.setText(str(scan["point_bl"]))
+
+    def br_pressed():
+      scan["point_br"] = JacqScan.selectScanPoint(self.fabric.path+"/scans/"+scan["filename"])
+      point_br.setText(str(scan["point_br"]))
+
+    filename.pressed.connect(fn_pressed)  
+    point_tl.pressed.connect(tl_pressed)
+    point_tr.pressed.connect(tr_pressed)
+    point_bl.pressed.connect(bl_pressed)
+    point_br.pressed.connect(br_pressed)
+
+    dialog.exec()
+
+    scan["limit"] = int(limit.text())
+    scan["kmin"] = int(kmin.text())
+    scan["kmax"] = int(kmax.text())
+    scan["smin"] = int(smin.text())
+    scan["smax"] = int(smax.text())
+
+    self.updateViews()
+
+    self.fabric.saveConfig()
+
+
+#############################################################################
+config = {
+  "last_project": None
+}
+
+def loadAppConfig():
+  global config
+
+  if os.path.exists("JacqSuite.config"):
+    with open("JacqSuite.config", "r") as file:
+      config = json.load(file)
+  else:
+    saveAppConfig()
+  
+def saveAppConfig():
+  with open("JacqSuite.config", "w") as file:
+    json.dump(config, file, indent=2)
+
+
+if __name__ == '__main__':
+  loadAppConfig()
+  app = QtWidgets.QApplication(sys.argv)
+  win = MainWindow()
+  win.show()
+  app.exec()
+  saveAppConfig()

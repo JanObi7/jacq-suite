@@ -113,11 +113,7 @@ def edit(pattern, dk, ds):
       vs = smax - smin + 1
       vk = kmax - kmin + 1
 
-      print (cs, ck, vs, vk)
-
       if vk % ck == 0 and vs % cs == 0:
-        print("passt")
-
         for s in range(int(vs/cs)):
           for k in range(int(vk/ck)):
             pattern[ds*(smin+s*cs):ds*(smin+s*cs+cs), dk*(kmin+k*ck):dk*(kmin+k*ck+ck)] = pattern[ds*(csmin):ds*(csmin+cs), dk*(ckmin):dk*(ckmin+ck)]

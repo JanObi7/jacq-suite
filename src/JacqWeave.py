@@ -9,7 +9,6 @@ def render(pattern, dk, ds):
 
   # build image
   image = np.zeros((dk*ns, ds*nk, 3), np.uint8)
-  print(np.shape(image))
 
   # set red fields
   for s in range(ns):

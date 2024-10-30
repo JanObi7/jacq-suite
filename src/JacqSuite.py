@@ -1,3 +1,5 @@
+version = "0.1"
+
 import numpy as np
 import cv2 as cv
 import json
@@ -194,7 +196,7 @@ class MainWindow(QtWidgets.QMainWindow):
     actionRenderTexture.triggered.connect(self.renderTexture)
 
     self.resize(640,400)
-    self.setWindowTitle("JacqSuite")
+    self.setWindowTitle(f"JacqSuite {version}")
     self.setWindowIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), 'JacqSuite.ico')))
 
     self.tab1 = QtWidgets.QWidget()
@@ -238,7 +240,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
   def updateViews(self):
     if self.fabric:
-      self.setWindowTitle("JacqSuite - " + self.fabric.path)
+      self.setWindowTitle(f"JacqSuite {version} - {self.fabric.path}")
 
       layout = self.parts.layout()
       for i in reversed(range(layout.count())):
@@ -263,7 +265,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(remove, i, 5)
 
     else:
-      self.setWindowTitle("JacqSuite")
+      self.setWindowTitle(f"JacqSuite {version}")
 
       layout = self.parts.layout()
       for i in reversed(range(layout.count())):

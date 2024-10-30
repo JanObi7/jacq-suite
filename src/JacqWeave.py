@@ -13,9 +13,12 @@ def render(pattern, dk, ds):
   # set red fields
   for s in range(ns):
     for k in range(nk):
-      disp = [-50,-15,0,-15,-50] # for ds=5
-      disp = [-50,0,0,-50] # for ds=4
+      if ds == 5:
+        disp = [-50,-15,0,-15,-50] # for ds=5
+      else:
+        disp = [-50,0,0,-50] # for ds=4
       disp2 = [-50,-20,-5,0,0,-5,-20,-50]
+      
       if pattern[s%ns,k] == 0:
         if pattern[(s-1)%ns,k] == 0:
           for d in range(ds):

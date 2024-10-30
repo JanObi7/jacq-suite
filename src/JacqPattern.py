@@ -179,7 +179,7 @@ def edit(pattern, dk, ds):
     
       showPattern()
       
-    if k == 27:
+    if k == 27 or cv.getWindowProperty("pattern", cv.WND_PROP_VISIBLE) < 1:
       break
 
   cv.destroyAllWindows()

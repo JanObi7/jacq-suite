@@ -90,13 +90,12 @@ class Digitizer:
       #   self.pattern[self.smin+self.ds*self.bs:self.smin+self.ds*self.bs+self.ds,self.kmin+self.dk*self.bk:self.kmin+self.dk*self.bk+self.dk] = self.box_pattern
       #   self.showPart()
 
-      if k == 27:
+      if k == 27 or cv.getWindowProperty("part", cv.WND_PROP_VISIBLE) < 1:
         # save direct to pattern
         self.saveBoxToPattern()
-
-        cv.destroyAllWindows()
         break
 
+    cv.destroyAllWindows()
 
     return self.pattern
   

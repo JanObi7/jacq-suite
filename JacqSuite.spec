@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['src\\JacqSuite.py'],
+    ['src/JacqSuite.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('src/JacqSuite.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

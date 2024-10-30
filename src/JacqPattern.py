@@ -8,6 +8,7 @@ def edit(pattern, dk, ds):
   bk = int(nk/dk)
 
   selecting = False
+  mode = "copy"
   s1 = -1
   s2 = -1
   k1 = -1
@@ -40,7 +41,7 @@ def edit(pattern, dk, ds):
     cv.imshow("pattern", image)
 
   def handle_event(event,x,y,flags,param):
-    nonlocal selecting, s1, s2, k1, k2, smin, smax, kmin, kmax
+    nonlocal selecting, mode, s1, s2, k1, k2, smin, smax, kmin, kmax, csmin, csmax, ckmin, ckmax
 
     if event == cv.EVENT_LBUTTONDOWN:
       if not selecting:
@@ -60,8 +61,31 @@ def edit(pattern, dk, ds):
         s = int(y / z)
         k = int(x / z)
 
-        k2 = k
-        s2 = s
+        if mode == "paste":
+          cs = csmax - csmin + 1
+          ck = ckmax - ckmin + 1
+
+          if k > k1:          
+            vk = k - k1 + 1
+            k2 = k1 - 1 + ck*(int(vk/ck)+1)
+          elif k < k1:
+            vk = k1 - k + 1
+            k2 = k1 + 1 - ck*(int(vk/ck)+1)
+          else:
+            k2 = k1 + ck - 1
+
+          if s > s1:
+            vs = s - s1 + 1
+            s2 = s1 - 1 + cs*(int(vs/cs)+1)
+          elif s < s1:
+            vs = s1 - s + 1
+            s2 = s1 + 1 - cs*(int(vs/cs)+1)
+          else:
+            s2 = s1 + cs - 1
+
+        else:
+          k2 = k
+          s2 = s
 
         showPattern()
 
@@ -92,31 +116,51 @@ def edit(pattern, dk, ds):
     k = cv.waitKey(20) & 0xFF
 
     if k == ord('c'):
-      csmin = smin
-      csmax = smax
-      ckmin = kmin
-      ckmax = kmax
-      s1 = -1
-      s2 = -1
-      k1 = -1
-      k2 = -1
-      smin = -1
-      smax = -1
-      kmin = -1
-      kmax = -1
+      if mode == "copy":
+        csmin = smin
+        csmax = smax
+        ckmin = kmin
+        ckmax = kmax
+        s1 = -1
+        s2 = -1
+        k1 = -1
+        k2 = -1
+        smin = -1
+        smax = -1
+        kmin = -1
+        kmax = -1
+
+        mode = "paste"
+    
+      else:
+        csmin = -1
+        csmax = -1
+        ckmin = -1
+        ckmax = -1
+        s1 = -1
+        s2 = -1
+        k1 = -1
+        k2 = -1
+        smin = -1
+        smax = -1
+        kmin = -1
+        kmax = -1
+
+        mode = "copy"
     
       showPattern()
       
     if k == ord('v'):
-      cs = csmax - csmin + 1
-      ck = ckmax - ckmin + 1
-      vs = smax - smin + 1
-      vk = kmax - kmin + 1
+      if mode == "paste":
+        cs = csmax - csmin + 1
+        ck = ckmax - ckmin + 1
+        vs = smax - smin + 1
+        vk = kmax - kmin + 1
 
-      if vk % ck == 0 and vs % cs == 0:
-        for s in range(int(vs/cs)):
-          for k in range(int(vk/ck)):
-            pattern[ds*(smin+s*cs):ds*(smin+s*cs+cs), dk*(kmin+k*ck):dk*(kmin+k*ck+ck)] = pattern[ds*(csmin):ds*(csmin+cs), dk*(ckmin):dk*(ckmin+ck)]
+        if vk % ck == 0 and vs % cs == 0:
+          for s in range(int(vs/cs)):
+            for k in range(int(vk/ck)):
+              pattern[ds*(smin+s*cs):ds*(smin+s*cs+cs), dk*(kmin+k*ck):dk*(kmin+k*ck+ck)] = pattern[ds*(csmin):ds*(csmin+cs), dk*(ckmin):dk*(ckmin+ck)]
 
       csmin = -1
       csmax = -1
@@ -130,6 +174,8 @@ def edit(pattern, dk, ds):
       smax = -1
       kmin = -1
       kmax = -1
+
+      mode = "copy"
     
       showPattern()
       

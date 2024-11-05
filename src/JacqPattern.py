@@ -214,7 +214,7 @@ def render(pattern, dk, ds):
   # draw black horizontal lines
   for s in range(ns+1):
     if s % ds == 0:
-      image[200+dk*s:200+dk*s+1, 200:200+ds*nk] = (20,20,20)
+      image[200+dk*(ns-s):200+dk*(ns-s)+1, 200:200+ds*nk] = (20,20,20)
 
   # draw black vertical lines
   for k in range(nk+1):

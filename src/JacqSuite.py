@@ -309,7 +309,7 @@ class MainWindow(QtWidgets.QMainWindow):
     nk = QLineEdit(str(self.fabric.config["pattern"]["nk"]))
     ns = QLineEdit(str(self.fabric.config["pattern"]["ns"]))
     div = QComboBox()
-    div.addItems(["4-16", "5-16"])
+    div.addItems(["4-16", "5-16", "6-20", "7-12"])
     div.setCurrentText(str(self.fabric.config["pattern"]["ds"]) + "-" + str(self.fabric.config["pattern"]["dk"]))
 
     def save():

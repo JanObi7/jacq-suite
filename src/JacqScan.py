@@ -142,11 +142,11 @@ class Digitizer:
           if self.box_pattern[s,k] == 255:
             color = (255,255,255)
           elif self.box_pattern[s,k] == 0:
-            color = (0,0,0)
+            color = (0,0,255)
           else:
             color = (255,0,0)
 
-          cv.rectangle(box, (self.m+10*self.ds*k+2, self.m+10*self.dk*s+2), (self.m+10*self.ds*k+10*self.ds-2, self.m+10*self.dk*s+10*self.dk-2), color, 2) 
+          cv.rectangle(box, (self.m+10*self.ds*k+2, self.m+10*self.dk*s+2), (self.m+10*self.ds*k+10*self.ds-2, self.m+10*self.dk*s+10*self.dk-2), color, 4) 
 
     cv.imshow("box", box)
 

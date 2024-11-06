@@ -1,7 +1,7 @@
 import os, json
 import numpy as np
 import cv2 as cv
-import JacqPattern
+import JacqPattern, JacqProgram
 
 class Project:
 
@@ -131,17 +131,20 @@ class Project:
       self.initDesign()
       self.saveDesign()
 
-  def getDesign(self, framed=True):
+  def getDesign(self, framed, k1, k2, s1, s2):
     z = 1
     w = self.config["design"]["width"]
     h = self.config["design"]["height"]
     dx = self.config["design"]["dx"]
     dy = self.config["design"]["dy"]
+    m = 2
 
     img = cv.resize(self.design, (z*dy*w, z*dx*h), interpolation=cv.INTER_NEAREST)
 
     if framed:
-      img[self.mask==255] = (0,0,0,0)
+      for y in range(s1, s2+1):
+          for x in range(k1, k2+1):
+              img[z*dx*y+m:z*dx*y+z*dx-m, z*dy*x+m:z*dy*x+z*dy-m] = (0,0,0,0)
 
     return img
 
@@ -230,9 +233,58 @@ class Project:
     self.saveConfig()
     self.loadScans()
 
+  def buildProgram(self):
+    red = (255,0,0,255)
+    white = (255,255,255,255)
+
+    w = self.config["design"]["width"]
+    h = self.config["design"]["height"]
+    rw = self.config["design"]["rw"]
+    rh = self.config["design"]["rh"]
+    rx = self.config["design"]["rx"]
+    ry = self.config["design"]["ry"]
+
+    nk = self.config["program"]["nk"]
+    ns = self.config["program"]["ns"]
+    dk = self.config["program"]["dk"]
+    ds = self.config["program"]["ds"]
+
+
+    self.program = np.zeros((ns, nk, 4), np.uint8)
+
+    def getPattern(x, y):
+      return tuple(self.design[h-1-(y%rh)-ry, x%rw+rx].tolist())
+
+    def setProgram(k, s, color):
+      self.program[ns-1-s, k] = color
+
+    # rules
+    def rule (color, x, y):
+      if color == red:
+        return red
+      else:
+        return white
+
+    for k in range(nk):
+      for s in range(ns):
+        color = getPattern(k, s)
+
+        setProgram(k, s, rule(color, k, s))
+
+    cv.imwrite(self.path+"/pattern/program.png", cv.cvtColor(self.program, cv.COLOR_RGBA2BGRA))
+
+  def renderProgram(self):
+    nk = self.config["program"]["nk"]
+    ns = self.config["program"]["ns"]
+    dk = self.config["program"]["dk"]
+    ds = self.config["program"]["ds"]
+    image = JacqProgram.renderProgram(self.program, nk, ns, dk, ds)
+    cv.imwrite(self.path+"/pattern/program_full.png", image)
 
 if __name__ == '__main__':
-  project = Project("d:/temp/jacq-suite/data/P1234")
+  project = Project("c:/temp/jacq-suite/data/D2132")
 
   project.renderDesign()
+  # project.buildProgram()
+  # project.renderProgram()
   

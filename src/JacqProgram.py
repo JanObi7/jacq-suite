@@ -1,8 +1,7 @@
 import cv2 as cv
 import numpy as np
 
-def renderProgram(program, dk, ds):
-  ns, nk = np.shape(program)
+def renderProgram(program, nk, ns, dk, ds):
 
   # build image
   image = np.zeros((dk*ns+400, ds*nk+400, 3), np.uint8)
@@ -13,9 +12,10 @@ def renderProgram(program, dk, ds):
   # set red fields
   for k in range(nk):
     for s in range(ns):
-      if program[ns-s-1,k] == 0:
+      color = tuple(program[ns-s-1,k].tolist())
+      if color == (255,0,0,255):
         image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (0,0,200)
-      elif program[ns-s-1,k] == 127:
+      elif color == (0,0,0,0):
         image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (200,100,100)
 
   # draw grey horizontal lines

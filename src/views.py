@@ -17,9 +17,9 @@ class PatternScene(QGraphicsScene):
     def __init__(self, parent, fabric):
         super().__init__(parent)
 
-        self.scanMode = False
+        self.scanMode = True
         self.tileMode = True
-        self.project = Project("d:/temp/jacq-suite/data/P1234")
+        self.project = Project("c:/temp/jacq-suite/data/D2132")
 
         self.nk = self.project.config["design"]["width"]
         self.ns = self.project.config["design"]["height"]
@@ -32,7 +32,7 @@ class PatternScene(QGraphicsScene):
         self.ox = 0
         self.oy = 0
 
-        img = self.project.getDesign(self.scanMode)
+        img = self.project.getDesign(self.scanMode, 1, 1, 1, 1)
         qimg = QImage(img.data,img.shape[1], img.shape[0], QImage.Format.Format_RGBA8888)
         self.pixmap = self.addPixmap(QPixmap(qimg))
 
@@ -53,6 +53,11 @@ class PatternScene(QGraphicsScene):
 
         self.selection = self.addRect(0,0,z*self.ds*self.dk,z*self.ds*self.dk, QPen(QColor("cyan"),z))
         self.selection.setVisible(False)
+
+        self.k1 = 1
+        self.k2 = 1
+        self.s1 = 1
+        self.s2 = 1
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -187,7 +192,8 @@ class PatternScene(QGraphicsScene):
 
     @Slot()
     def updatePattern(self):
-        img = self.project.getDesign(self.scanMode)
+        img = self.project.getDesign(self.scanMode, self.k1, self.k2, self.s1, self.s2)
+            
         qimg = QImage(img.data,img.shape[1], img.shape[0], QImage.Format.Format_RGBA8888)
         self.pixmap.setPixmap(QPixmap(qimg))
 

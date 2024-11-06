@@ -7,8 +7,10 @@ import sys, os
 from functools import partial
 
 from PySide6 import QtWidgets, QtGui
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox
 import JacqScan, JacqPattern, JacqCard, JacqWeave
+from views import PatternView
 
 class Fabric:
 
@@ -54,53 +56,59 @@ class Fabric:
     ns = self.config["pattern"]["ns"]
 
     # create pattern
-    self.pattern = np.zeros((ns, nk), np.uint8)
+    self.pattern = np.zeros((ns, nk, 4), np.uint8)
 
     # empty undefined pattern
-    self.pattern[:,:] = 127
+    self.pattern[:,:] = (255,255,255,0)
 
     # sample: strpes atlas binding
+    red = (255,0,0,255)
+    white = (255,255,255,255)
     if sample == "atlas":
       for k in range(nk):
         if k % 16 >= 5:
-          self.pattern[0:ns,k:k+1] = 255
+          self.pattern[0:ns,k:k+1] = white
         else:
-          self.pattern[0:ns,k:k+1] = 0
+          self.pattern[0:ns,k:k+1] = red
 
       for s in range(ns):
         for k in range(0, nk, 16):
           ms = s % 5
           mk = int(k / 16) % 5
           if (ms, mk) in [(0,0), (2,1), (4,2), (1,3), (3,4)]:
-            self.pattern[s,k+3] = 255
-            self.pattern[s,k+6] = 0
-            self.pattern[s,k+11] = 0
+            self.pattern[s,k+3] = white
+            self.pattern[s,k+6] = red
+            self.pattern[s,k+11] = red
           if (ms, mk) in [(1,0), (3,1), (0,2), (2,3), (4,4)]:
-            self.pattern[s,k+0] = 255
-            self.pattern[s,k+9] = 0
-            self.pattern[s,k+14] = 0
+            self.pattern[s,k+0] = white
+            self.pattern[s,k+9] = red
+            self.pattern[s,k+14] = red
           if (ms, mk) in [(2,0), (4,1), (1,2), (3,3), (0,4)]:
-            self.pattern[s,k+2] = 255
-            self.pattern[s,k+7] = 0
-            self.pattern[s,k+12] = 0
+            self.pattern[s,k+2] = white
+            self.pattern[s,k+7] = red
+            self.pattern[s,k+12] = red
           if (ms, mk) in [(3,0), (0,1), (2,2), (4,3), (1,4)]:
-            self.pattern[s,k+4] = 255
-            self.pattern[s,k+5] = 0
-            self.pattern[s,k+10] = 0
-            self.pattern[s,k+15] = 0
+            self.pattern[s,k+4] = white
+            self.pattern[s,k+5] = red
+            self.pattern[s,k+10] = red
+            self.pattern[s,k+15] = red
           if (ms, mk) in [(4,0), (1,1), (3,2), (0,3), (2,4)]:
-            self.pattern[s,k+1] = 255
-            self.pattern[s,k+8] = 0
-            self.pattern[s,k+13] = 0
+            self.pattern[s,k+1] = white
+            self.pattern[s,k+8] = red
+            self.pattern[s,k+13] = red
 
     # save pattern
     self.savePattern()
 
   def loadPattern(self):
-    self.pattern = np.loadtxt(self.path+"/pattern/pattern.csv", np.uint8, delimiter=';')
+    # self.pattern = np.loadtxt(self.path+"/pattern/pattern.csv", np.uint8, delimiter=';')
+    self.pattern = cv.imread(self.path+"/pattern/design.png", flags=cv.IMREAD_UNCHANGED)
+    self.pattern = cv.cvtColor(self.pattern, cv.COLOR_BGRA2RGBA)
 
   def savePattern(self):
-    np.savetxt(self.path+"/pattern/pattern.csv", self.pattern, delimiter=';', fmt='%u')
+    # np.savetxt(self.path+"/pattern/pattern.csv", self.pattern, delimiter=';', fmt='%u')
+    pattern = cv.cvtColor(self.pattern, cv.COLOR_RGBA2BGRA)
+    cv.imwrite(self.path+"/pattern/design.png", pattern)
 
   def renderPattern(self):
     self.loadPattern()
@@ -195,9 +203,20 @@ class MainWindow(QtWidgets.QMainWindow):
     actionRenderTexture = QtGui.QAction("Textur Ausgeben", self)
     actionRenderTexture.triggered.connect(self.renderTexture)
 
-    self.resize(640,400)
+    self.resize(1280,800)
     self.setWindowTitle(f"JacqSuite {version}")
     self.setWindowIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), 'JacqSuite.ico')))
+
+
+    self.tab0 = QtWidgets.QWidget()
+    toolbar0 = QtWidgets.QToolBar()
+    toolbar0.addAction(actionAddScan)
+    toolbar0.addAction(actionEditPattern)
+    layout = QtWidgets.QVBoxLayout()
+    layout.addWidget(toolbar0)
+    self.view = PatternView(self, self.fabric)
+    layout.addWidget(self.view)
+    self.tab0.setLayout(layout)
 
     self.tab1 = QtWidgets.QWidget()
     toolbar = QtWidgets.QToolBar()
@@ -211,6 +230,7 @@ class MainWindow(QtWidgets.QMainWindow):
     self.tab1.setLayout(layout)
 
     tabs = QTabWidget()
+    tabs.addTab(self.tab0, "Muster")
     tabs.addTab(self.tab1, "Ausschnitte")
     self.setCentralWidget(tabs)
 
@@ -238,6 +258,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     self.updateViews()
 
+  def closeEvent(self, event: QCloseEvent) -> None:
+      self.fabric.savePattern()
+
+      return super().closeEvent(event)
+
   def updateViews(self):
     if self.fabric:
       self.setWindowTitle(f"JacqSuite {version} - {self.fabric.path}")
@@ -263,6 +288,8 @@ class MainWindow(QtWidgets.QMainWindow):
         remove = QtWidgets.QPushButton("Löschen")
         remove.pressed.connect(partial(self.deleteScan, i))
         layout.addWidget(remove, i, 5)
+
+      self.view.scene.updatePattern()
 
     else:
       self.setWindowTitle(f"JacqSuite {version}")
@@ -312,6 +339,10 @@ class MainWindow(QtWidgets.QMainWindow):
     div.addItems(["4-16", "5-16", "6-20", "7-12"])
     div.setCurrentText(str(self.fabric.config["pattern"]["ds"]) + "-" + str(self.fabric.config["pattern"]["dk"]))
 
+    sample = QComboBox()
+    sample.addItems(["-", "atlas"])
+    sample.setCurrentText("-")
+
     def save():
       self.fabric.config["pattern"]["nk"] = int(nk.text())
       self.fabric.config["pattern"]["ns"] = int(ns.text())
@@ -319,9 +350,12 @@ class MainWindow(QtWidgets.QMainWindow):
       self.fabric.config["pattern"]["ds"] = int(div.currentText().split("-")[0])
       self.fabric.saveConfig()
 
-      self.fabric.initPattern()
+      self.fabric.initPattern(sample=sample.currentText())
 
       dialog.close()
+
+      self.updateViews()
+
 
     ok = QPushButton("OK")
     ok.pressed.connect(save)
@@ -329,6 +363,7 @@ class MainWindow(QtWidgets.QMainWindow):
     layout.addRow("Anzahl Ketten:", nk)
     layout.addRow("Anzahl Schüsse:", ns)
     layout.addRow("Teilung:", div)
+    layout.addRow("Muster:", sample)
     layout.addWidget(ok)
 
     dialog.setLayout(layout)

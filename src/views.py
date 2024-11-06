@@ -7,7 +7,9 @@ from PySide6.QtWidgets import QGraphicsView, QGraphicsScene
 from PySide6.QtGui import QBrush, QKeyEvent, QPixmap, QWheelEvent, QImage, QColor, QPen
 from PySide6.QtCore import Qt, Signal, Slot
 
-z = 4
+from project import Project
+
+z = 1
 
 class PatternScene(QGraphicsScene):
     selectionChanged = Signal(int, int)
@@ -15,41 +17,22 @@ class PatternScene(QGraphicsScene):
     def __init__(self, parent, fabric):
         super().__init__(parent)
 
-        self.scanMode = True
+        self.scanMode = False
+        self.tileMode = True
+        self.project = Project("d:/temp/jacq-suite/data/P1234")
 
-        self.nk = fabric.config["pattern"]["nk"]
-        self.ns = fabric.config["pattern"]["ns"]
-        self.dk = fabric.config["pattern"]["dk"]
-        self.ds = fabric.config["pattern"]["ds"]
+        self.nk = self.project.config["design"]["width"]
+        self.ns = self.project.config["design"]["height"]
+        self.dk = self.project.config["design"]["dx"]
+        self.ds = self.project.config["design"]["dy"]
 
-        # scans
-        filename = fabric.config["scans"][0]["filename"]
-        limit = fabric.config["scans"][0]["limit"]
-        kmin = fabric.config["scans"][0]["kmin"]
-        kmax = fabric.config["scans"][0]["kmax"]
-        smin = fabric.config["scans"][0]["smin"]
-        smax = fabric.config["scans"][0]["smax"]
-        point_tl = fabric.config["scans"][0]["point_tl"]
-        point_tr = fabric.config["scans"][0]["point_tr"]
-        point_bl = fabric.config["scans"][0]["point_bl"]
-        point_br = fabric.config["scans"][0]["point_br"]
+        layer = self.project.scans
+        qimg = QImage(layer.data,layer.shape[1], layer.shape[0], QImage.Format.Format_RGB888)
+        self.scans = self.addPixmap(QPixmap(qimg))
+        self.ox = 0
+        self.oy = 0
 
-        scan = cv.imread(fabric.path+"/scans/"+filename, flags=cv.IMREAD_UNCHANGED)
-        scan = cv.cvtColor(scan, cv.COLOR_BGR2RGB)
-        scan_points = [point_tl, point_tr, point_bl, point_br]
-
-        part_points = [[0,0], [z*self.ds*(kmax-kmin+1),0], [0,z*self.dk*(smax-smin+1)], [z*self.ds*(kmax-kmin+1),z*self.dk*(smax-smin+1)]]
-
-        matrix = cv.getPerspectiveTransform(np.float32(scan_points), np.float32(part_points))
-        self.scan = cv.warpPerspective(scan, matrix, (z*self.ds*self.nk, z*self.dk*self.ns))
-        qimg = QImage(self.scan.data,self.scan.shape[1], self.scan.shape[0], QImage.Format.Format_RGB888)
-        item = self.addPixmap(QPixmap(qimg))
-        # # item.setPos(0, 4*z*self.dk)
-
-        fabric.loadPattern()
-        self.pattern = fabric.pattern
-        img = self.getFramedPattern()
-        print(img.shape)
+        img = self.project.getDesign(self.scanMode)
         qimg = QImage(img.data,img.shape[1], img.shape[0], QImage.Format.Format_RGBA8888)
         self.pixmap = self.addPixmap(QPixmap(qimg))
 
@@ -62,11 +45,11 @@ class PatternScene(QGraphicsScene):
         for s in range(0,self.ns+self.ds,self.ds):
             self.addLine(0,z*self.dk*s,z*self.ds*self.nk,z*self.dk*s,QPen(QColor("black"),z*0.5))
 
-        rx = 8
-        ry = 0
-        rw = 44
-        rh = 12
-        self.rapport = self.addRect(z*self.ds*rx, z*self.dk*(self.ns-ry-rh), z*self.ds*rw, z*self.dk*rh, QPen(QColor("yellow"), 1))
+        # rx = 8
+        # ry = 0
+        # rw = 44
+        # rh = 12
+        # self.rapport = self.addRect(z*self.ds*rx, z*self.dk*(self.ns-ry-rh), z*self.ds*rw, z*self.dk*rh, QPen(QColor("yellow"), 1))
 
         self.selection = self.addRect(0,0,z*self.ds*self.dk,z*self.ds*self.dk, QPen(QColor("cyan"),z))
         self.selection.setVisible(False)
@@ -75,6 +58,17 @@ class PatternScene(QGraphicsScene):
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self.k1 = math.floor(event.scenePos().x() / z / self.ds)
             self.s1 = math.floor(event.scenePos().y() / z / self.dk)
+            self.k2 = self.k1
+            self.s2 = self.s1
+
+            if self.tileMode:
+                self.k1 = math.floor(self.k1/self.dk)*self.dk
+                self.s1 = math.floor(self.s1/self.ds)*self.ds
+                self.k2 = math.floor(self.k2/self.dk+1)*self.dk-1
+                self.s2 = math.floor(self.s2/self.ds+1)*self.ds-1
+
+            self.updateSelection()
+
 
         return super().mousePressEvent(event)
     
@@ -82,6 +76,11 @@ class PatternScene(QGraphicsScene):
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self.k2 = math.floor(event.scenePos().x() / z / self.ds)
             self.s2 = math.floor(event.scenePos().y() / z / self.dk)
+
+            if self.tileMode:
+                self.k2 = math.floor(self.k2/self.dk+1)*self.dk-1
+                self.s2 = math.floor(self.s2/self.ds+1)*self.ds-1
+
             self.updateSelection()
 
         return super().mouseMoveEvent(event)
@@ -92,15 +91,20 @@ class PatternScene(QGraphicsScene):
             s = math.floor(event.scenePos().y() / z / self.dk)
 
             if k >= 0 and k < self.nk and s >= 0 and s < self.ns:
-                if tuple(self.pattern[s,k]) == (255,255,255,255):
-                    self.pattern[s,k] = (255,0,0,255)
+                if tuple(self.project.design[s,k]) == (255,255,255,255):
+                    self.project.design[s,k] = (255,0,0,255)
                 else:
-                    self.pattern[s,k] = (255,255,255,255)
+                    self.project.design[s,k] = (255,255,255,255)
                 self.updatePattern()
 
         else:
             self.k2 = math.floor(event.scenePos().x() / z / self.ds)
             self.s2 = math.floor(event.scenePos().y() / z / self.dk)
+
+            if self.tileMode:
+                self.k2 = math.floor(self.k2/self.dk+1)*self.dk-1
+                self.s2 = math.floor(self.s2/self.ds+1)*self.ds-1
+
             self.updateSelection()
 
         return super().mouseReleaseEvent(event)
@@ -114,11 +118,46 @@ class PatternScene(QGraphicsScene):
         print(key)
 
         if key == Qt.Key.Key_Space:
-            self.pattern[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.scan[z*self.dk*self.s1:z*self.dk*(self.s2+1), z*self.ds*self.k1:z*self.ds*(self.k2+1)], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 160)
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 180)
             self.updatePattern()
 
         if key == Qt.Key.Key_M:
             self.toggleMode()
+
+        if key == Qt.Key.Key_B:
+            self.tileMode = not self.tileMode
+
+        if key == Qt.Key.Key_C:
+            self.buffer = self.project.design[self.s1:self.s2+1, self.k1:self.k2+1]
+
+        if key == Qt.Key.Key_V:
+            cy, cx, _ = self.buffer.shape
+            px = self.k2-self.k1+1
+            py = self.s2-self.s1+1
+
+            if px % cx == 0 and py % cy == 0:
+                for j in range(int(py/cy)):
+                    for i in range(int(px/cx)):
+                        self.project.design[self.s1+j*cy:self.s1+(j+1)*cy, self.k1+i*cx:self.k1+(i+1)*cx] = self.buffer
+
+            self.updatePattern()
+
+        if key == Qt.Key.Key_A:
+            self.ox -= 1
+            self.scans.setPos(self.ox, self.oy)
+
+        if key == Qt.Key.Key_D:
+            self.ox += 1
+            self.scans.setPos(self.ox, self.oy)
+
+        if key == Qt.Key.Key_W:
+            self.oy -= 1
+            self.scans.setPos(self.ox, self.oy)
+
+        if key == Qt.Key.Key_S:
+            self.oy += 1
+            self.scans.setPos(self.ox, self.oy)
+
 
         return super().keyReleaseEvent(event)
 
@@ -148,9 +187,11 @@ class PatternScene(QGraphicsScene):
 
     @Slot()
     def updatePattern(self):
-        img = self.getFramedPattern()
+        img = self.project.getDesign(self.scanMode)
         qimg = QImage(img.data,img.shape[1], img.shape[0], QImage.Format.Format_RGBA8888)
         self.pixmap.setPixmap(QPixmap(qimg))
+
+        self.project.saveDesign()
 
     @Slot()
     def showRapport(self):
@@ -160,19 +201,6 @@ class PatternScene(QGraphicsScene):
     def toggleMode(self):
         self.scanMode = not self.scanMode
         self.updatePattern()
-
-    def getFramedPattern(self):
-        if self.scanMode:
-            img = np.zeros((z*self.dk*self.ns, z*self.ds*self.nk, 4), np.uint8)
-            for s in range(self.ns):
-                for k in range(self.nk):
-                    color = (int(self.pattern[s,k][0]), int(self.pattern[s,k][1]), int(self.pattern[s,k][2]), int(self.pattern[s,k][3]))
-                    cv.rectangle(img, (z*self.ds*k+1,z*self.dk*s+1), (z*self.ds*(k+1)-2,z*self.dk*(s+1)-2), color, 2)
-        else:
-            img = cv.resize(self.pattern, (z*self.ds*self.nk, z*self.dk*self.ns), interpolation=cv.INTER_NEAREST)
-        
-        return img #cv.cvtColor(img, cv.COLOR_BGRA2RGBA)
-
 
 class PatternView(QGraphicsView):
     def __init__(self, parent, fabric):

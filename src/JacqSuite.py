@@ -494,6 +494,6 @@ if __name__ == '__main__':
   loadAppConfig()
   app = QtWidgets.QApplication(sys.argv)
   win = MainWindow()
-  win.show()
+  win.showMaximized()
   app.exec()
   saveAppConfig()

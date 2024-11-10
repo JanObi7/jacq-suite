@@ -115,7 +115,7 @@ class Project:
       self.design = cv.cvtColor(self.design, cv.COLOR_BGRA2RGBA)
 
       # create frame mask
-      z = 1
+      z = 4
       w = self.config["design"]["width"]
       h = self.config["design"]["height"]
       dx = self.config["design"]["dx"]
@@ -132,7 +132,7 @@ class Project:
       self.saveDesign()
 
   def getDesign(self, framed, k1, k2, s1, s2):
-    z = 1
+    z = 4
     w = self.config["design"]["width"]
     h = self.config["design"]["height"]
     dx = self.config["design"]["dx"]
@@ -158,7 +158,7 @@ class Project:
     cv.imwrite(self.path+"/pattern/design_full.png", image)
 
   def loadScans(self):
-    z = 1
+    z = 4
     nx = self.config["design"]["width"]
     ny = self.config["design"]["height"]
     dx = self.config["design"]["dx"]

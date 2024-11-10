@@ -2,24 +2,25 @@ import cv2 as cv
 import numpy as np
 import math
 
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene
-from PySide6.QtGui import QBrush, QKeyEvent, QPixmap, QWheelEvent, QImage, QColor, QPen
+from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QListView, QMainWindow
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QWidget, QVBoxLayout, QLabel, QPushButton
+from PySide6.QtGui import QBrush, QKeyEvent, QPixmap, QWheelEvent, QImage, QColor, QPen, QIcon
+from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtCore import Qt, Signal, Slot
 
 from project import Project
 
-z = 1
+z = 4
 
 class PatternScene(QGraphicsScene):
     selectionChanged = Signal(int, int)
 
-    def __init__(self, parent, fabric):
+    def __init__(self, parent, project):
         super().__init__(parent)
 
         self.scanMode = True
         self.tileMode = True
-        self.project = Project("c:/temp/jacq-suite/data/D2132")
+        self.project = project
 
         self.nk = self.project.config["design"]["width"]
         self.ns = self.project.config["design"]["height"]
@@ -51,16 +52,18 @@ class PatternScene(QGraphicsScene):
         # rh = 12
         # self.rapport = self.addRect(z*self.ds*rx, z*self.dk*(self.ns-ry-rh), z*self.ds*rw, z*self.dk*rh, QPen(QColor("yellow"), 1))
 
-        self.selection = self.addRect(0,0,z*self.ds*self.dk,z*self.ds*self.dk, QPen(QColor("cyan"),z))
+        self.selection = self.addRect(0,0,z*self.ds*self.dk,z*self.ds*self.dk, QPen(QColor("cyan"), 4*z))
         self.selection.setVisible(False)
 
         self.k1 = 1
         self.k2 = 1
         self.s1 = 1
         self.s2 = 1
+        self.selecting = False
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.selecting = True
             self.k1 = math.floor(event.scenePos().x() / z / self.ds)
             self.s1 = math.floor(event.scenePos().y() / z / self.dk)
             self.k2 = self.k1
@@ -78,7 +81,7 @@ class PatternScene(QGraphicsScene):
         return super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+        if not event.modifiers() == Qt.KeyboardModifier.ControlModifier and self.selecting:
             self.k2 = math.floor(event.scenePos().x() / z / self.ds)
             self.s2 = math.floor(event.scenePos().y() / z / self.dk)
 
@@ -102,7 +105,8 @@ class PatternScene(QGraphicsScene):
                     self.project.design[s,k] = (255,255,255,255)
                 self.updatePattern()
 
-        else:
+        elif self.selecting:
+            self.selecting = False
             self.k2 = math.floor(event.scenePos().x() / z / self.ds)
             self.s2 = math.floor(event.scenePos().y() / z / self.dk)
 
@@ -123,7 +127,19 @@ class PatternScene(QGraphicsScene):
         print(key)
 
         if key == Qt.Key.Key_Space:
-            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 180)
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 150)
+            self.updatePattern()
+
+        if key == Qt.Key.Key_1:
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = (255,0,0,255)
+            self.updatePattern()
+
+        if key == Qt.Key.Key_0:
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = (255,255,255,255)
+            self.updatePattern()
+
+        if key == Qt.Key.Key_Backspace or key == Qt.Key.Key_Delete:
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = (0,0,0,0)
             self.updatePattern()
 
         if key == Qt.Key.Key_M:
@@ -193,11 +209,15 @@ class PatternScene(QGraphicsScene):
     @Slot()
     def updatePattern(self):
         img = self.project.getDesign(self.scanMode, self.k1, self.k2, self.s1, self.s2)
-            
         qimg = QImage(img.data,img.shape[1], img.shape[0], QImage.Format.Format_RGBA8888)
         self.pixmap.setPixmap(QPixmap(qimg))
 
         self.project.saveDesign()
+
+    def updateScans(self):
+        img = self.project.scans
+        qimg = QImage(img.data,img.shape[1], img.shape[0], QImage.Format.Format_RGB888)
+        self.scans.setPixmap(QPixmap(qimg))
 
     @Slot()
     def showRapport(self):
@@ -209,12 +229,12 @@ class PatternScene(QGraphicsScene):
         self.updatePattern()
 
 class PatternView(QGraphicsView):
-    def __init__(self, parent, fabric):
+    def __init__(self, parent, project):
         super().__init__(parent)
 
         self.setBackgroundBrush(QBrush("#DFD5C2"))
 
-        self.scene = PatternScene(self, fabric)
+        self.scene = PatternScene(self, project)
 
         self.setScene(self.scene)
 

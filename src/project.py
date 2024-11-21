@@ -1,7 +1,7 @@
 import os, json
 import numpy as np
 import cv2 as cv
-import JacqPattern, JacqProgram, JacqCard
+import JacqPattern, JacqProgram, JacqCard, JacqWeave
 import math
 
 z = 2
@@ -381,9 +381,18 @@ class Project:
     JacqCard.buildCards(self.path)
     JacqCard.renderCards(self.path)
 
+  def renderTexture(self, name):
+    program = cv.cvtColor(cv.imread(self.path+"/pattern/program.png", flags=cv.IMREAD_UNCHANGED), cv.COLOR_BGRA2RGBA)
+
+    front, back  = JacqWeave.render(program, self.config[name])
+
+    cv.imwrite(f"{self.path}/pattern/{name}_front.png", cv.cvtColor(front, cv.COLOR_RGBA2BGRA))
+    cv.imwrite(f"{self.path}/pattern/{name}_back.png", cv.cvtColor(back, cv.COLOR_RGBA2BGRA))
+
 if __name__ == '__main__':
-  project = Project("C:/temp/jacq-suite/data/P1374_D1694")
+  project = Project("C:/temp/jacq-suite/data/TH4235_P2383i")
 
-  project.buildProgram()
-  project.renderProgram()
+  # project.buildProgram()
+  # project.renderProgram()
 
+  project.renderTexture("texture1")

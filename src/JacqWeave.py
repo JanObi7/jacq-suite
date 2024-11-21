@@ -1,88 +1,243 @@
 import numpy as np
 import cv2 as cv
 
-def getColor1(x):
-  schwarz = (50,50,50)
-  grau1 = (100,100,100)
-  grau2 = (120,120,120)
-  gruen = (100,110,100)
-  rot = (150,100,100)
-  if x < 16: ck = grau1
-  elif x < 18: ck = schwarz
-  elif x < 30: ck = gruen
-  elif x < 32: ck = schwarz
-  elif x < 38: ck = grau2
-  elif x < 40: ck = schwarz
-  elif x < 48: ck = gruen
-  elif x < 50: ck = schwarz
-  elif x < 150: ck = rot
-  elif x < 152: ck = schwarz
-  elif x < 160: ck = gruen
-  elif x < 162: ck = schwarz
-  elif x < 168: ck = grau2
-  elif x < 170: ck = schwarz
-  elif x < 182: ck = gruen
-  elif x < 184: ck = schwarz
-  elif x < 216: ck = grau1
-  elif x < 218: ck = schwarz
-  elif x < 230: ck = gruen
-  elif x < 232: ck = schwarz
-  elif x < 240: ck = grau2
-  elif x < 242: ck = schwarz
-  elif x < 248: ck = gruen
-  elif x < 250: ck = schwarz
-  elif x < 350: ck = rot
-  elif x < 352: ck = schwarz
-  elif x < 360: ck = gruen
-  elif x < 362: ck = schwarz
-  elif x < 368: ck = grau2
-  elif x < 370: ck = schwarz
-  elif x < 382: ck = gruen
-  elif x < 384: ck = schwarz
-  elif x < 400: ck = grau1
-  else: ck = rot
+################################################################################################
+def render(program, config):
+  ns, nk, _ = np.shape(program)
 
-  return ck
+  width = config["width"]
+  height = config["height"]
 
-def lighten(color, percent):
-  return (
-    int(color[0]/100*(100+percent)),
-    int(color[1]/100*(100+percent)),
-    int(color[2]/100*(100+percent)),
-  )
+  # build image
+  image_front = np.zeros((height, width, 3), np.uint8)
+  image_back = np.zeros((height, width, 3), np.uint8)
+
+  # helper
+  def lighten(color, percent):
+    return (
+      int(color[0]/100*(100+percent)),
+      int(color[1]/100*(100+percent)),
+      int(color[2]/100*(100+percent)),
+    )
+
+  # getter and setter
+  def get(k, s):
+    return tuple(program[ns-1-s%ns, k%nk].tolist()) == (255, 0, 0, 255)
+
+  # color getter
+  def getShot(s):
+    n = len(config["shots"])
+    i = int(s/n)
+    for id, shot in config["shots"][s%n].items():
+      if id == "*": return config["colors"][shot["color"]], shot["width"]
+
+  def getChain(k):
+    n = len(config["chains"])
+    i = int(k/n)
+    for id, chain in config["chains"][k%n].items():
+      if id == "*":
+        return config["colors"][chain["color"]], chain["width"]
+      elif ":" in id:
+        i1, i2 = id.split(":")
+        if i >= int(i1)-1 and i <= int(i2)-1:
+          return config["colors"][chain["color"]], chain["width"]
+
+
+  # def bindings(s):
+  #   # zählt die Abbindungen wo sich zwei nebeneinander liegende (0 oder 1 Abstand) Kettfäden kreuzen
+  #   b = 0
+  #   for k in range(nk):
+  #     b11 = get(k,s)
+  #     b12 = get(k,s+1)
+  #     b21 = get(k+1,s)
+  #     b22 = get(k+1,s+1)
+  #     b31 = get(k+2,s)
+  #     b32 = get(k+2,s+1)
+  #     if b11 and not b12 and (not b21 and b22):
+  #       b += 1
+  #     if not b11 and b12 and (b21 and not b22):
+  #       b += 1
+  #   return b
+  
+  def bindings(s):
+    # zählt die Abbindungen wo sich zwei nebeneinander liegende (0 oder 1 Abstand) Kettfäden kreuzen
+    b = 0
+    for k in range(nk):
+      b11 = get(k,s)
+      b12 = get(k,s+1)
+      b21 = get(k+1,s)
+      b22 = get(k+1,s+1)
+      b31 = get(k+2,s)
+      b32 = get(k+2,s+1)
+      if b11 and not b12 and (not b21 and b22 or not b31 and b32):
+        b += 1
+      if not b11 and b12 and (b21 and not b22 or b31 and not b32):
+        b += 1
+    return b
+  
+  # iterate over pattern
+  fach_shots = 0
+
+  fy = 0
+  s = 0
+  while fy < height:
+    fx = 0
+    for k in range(nk):
+
+      def draw_front(x, y, c, o):
+        if o == "v" and x >= 5:
+          image_front[height-fy-y:height-fy, fx:fx+x] = lighten(c, -25)
+          image_front[height-fy-y:height-fy, fx+1:fx+x-1] = lighten(c, 0)
+          image_front[height-fy-y:height-fy, fx+2:fx+x-2] = lighten(c, 10)
+        elif o == "h" and y >= 7:
+          image_front[height-fy-y:height-fy, fx:fx+x] = lighten(c, -25)
+          image_front[height-fy-y+1:height-fy-2, fx:fx+x] = lighten(c, 0)
+          image_front[height-fy-y+2:height-fy-4, fx:fx+x] = lighten(c, 10)
+        else:
+          image_front[height-fy-y:height-fy, fx:fx+x] = c
+
+
+      def draw_back(x, y, c, o):
+        if o == "v" and x >= 5:
+          image_back[height-fy-y:height-fy, width-fx-x:width-fx] = lighten(c, -25)
+          image_back[height-fy-y:height-fy, width-fx-x+1:width-fx-1] = lighten(c, 0)
+          image_back[height-fy-y:height-fy, width-fx-x+2:width-fx-2] = lighten(c, 10)
+        elif o == "h" and y >= 7:
+          image_back[height-fy-y:height-fy, width-fx-x:width-fx] = lighten(c, -25)
+          image_back[height-fy-y+1:height-fy-2, width-fx-x:width-fx] = lighten(c, 0)
+          image_back[height-fy-y+2:height-fy-4, width-fx-x:width-fx] = lighten(c, 10)
+        else:
+          image_back[height-fy-y:height-fy, width-fx-x:width-fx] = c
+
+
+      if fach_shots == 1:
+        ck, wk = getChain(k)
+        cs1, ws = getShot(s-1)
+        cs2, ws = getShot(s)
+
+        b1 = get(k, s-1)
+        b2 = get(k, s)
+        br1 = get(k+1, s-1)
+        br2 = get(k+1, s)
+        brr1 = get(k+2, s-1)
+        brr2 = get(k+2, s)
+
+        if b1 and not b2:
+          draw_front(wk,ws,cs2,"h")
+          draw_back(wk,ws,cs1,"h")
+        elif not b1 and b2:
+          draw_front(wk,ws,cs1,"h")
+          draw_back(wk,ws,cs2,"h")
+        elif b1 and b2:
+          draw_front(wk,ws,ck,"v")
+          if br1 and not br2:
+            draw_back(wk,ws,cs1,"h")
+          elif not br1 and br2:
+            draw_back(wk,ws,cs2,"h")
+          elif brr1 and not brr2:
+            draw_back(wk,ws,cs1,"h")
+          elif not brr1 and brr2:
+            draw_back(wk,ws,cs2,"h")
+          else:
+            draw_back(wk,ws,cs1,"h")
+        elif not b1 and not b2:
+          draw_back(wk,ws,ck,"v")
+          if br1 and not br2:
+            draw_front(wk,ws,cs2,"h")
+          elif not br1 and br2:
+            draw_front(wk,ws,cs1,"h")
+          elif brr1 and not brr2:
+            draw_front(wk,ws,cs2,"h")
+          elif not brr1 and brr2:
+            draw_front(wk,ws,cs1,"h")
+          else:
+            draw_front(wk,ws,cs2,"h")
+
+        
+      else:
+        ck, wk = getChain(k)
+        cs, ws = getShot(s)
+
+        if get(k, s):
+          draw_front(wk,ws,ck,"v")
+          draw_back(wk,ws,cs,"h")
+        else:
+          draw_front(wk,ws,cs,"h")
+          draw_back(wk,ws,ck,"v")
+
+      # weiter in x Richtung
+      fx += wk
+
+    # weiter in y Richtung
+    if bindings(s)/nk >= 0.1:
+      fy += ws
+      fach_shots = 0
+    else:
+      fach_shots += 1
+      print("fach", fach_shots)
+
+    # next shot
+    s += 1
+
+  return image_front, image_back
 
 ################################################################################################
-def render(pattern):
+def render_1694(program, config, dx, dy):
   ns, nk, _ = np.shape(program)
 
   nx = int(nk/3)
   ny = int(ns/3)
 
   # build image
-  image_front = np.zeros((12*ny, 7*nx, 3), np.uint8)
-  image_back = np.zeros((12*ny, 7*nx, 3), np.uint8)
+  image_front = np.zeros((dx*ny, dy*nx, 3), np.uint8)
+  image_back = np.zeros((dx*ny, dy*nx, 3), np.uint8)
+
+  # helper
+  def lighten(color, percent):
+    return (
+      int(color[0]/100*(100+percent)),
+      int(color[1]/100*(100+percent)),
+      int(color[2]/100*(100+percent)),
+    )
 
   # getter and setter
   def get(k, s):
-    return tuple(pattern[ns-1-s%ns, k%nk].tolist()) == (255, 0, 0, 255)
+    return tuple(program[ns-1-s%ns, k%nk].tolist()) == (255, 0, 0, 255)
 
+  # color getter
+  def getShot(s):
+    n = len(config["shots"])
+    i = int(s/n)
+    for id, shot in config["shots"][s%n].items():
+      if id == "*": return config["colors"][shot["color"]], shot["width"]
+
+  def getChain(k):
+    n = len(config["chains"])
+    i = int(k/n)
+    for id, chain in config["chains"][k%n].items():
+      if id == "*":
+        return config["colors"][chain["color"]], chain["width"]
+      elif ":" in id:
+        i1, i2 = id.split(":")
+        if i >= int(i1)-1 and i <= int(i2)-1:
+          return config["colors"][chain["color"]], chain["width"]
 
   # iterate over pattern
   for y in range(ny):
     for x in range(nx):
       def set_front(xmin, xmax, ymin, ymax, c):
-        image_front[12*ny-1-12*y-ymax-1:12*ny-1-12*y-ymin, 7*x+xmin:7*x+xmax+1] = c
+        image_front[dx*ny-1-dx*y-ymax-1:dx*ny-1-dx*y-ymin, dy*x+xmin:dy*x+xmax+1] = c
 
       def set_back(xmin, xmax, ymin, ymax, c):
-        image_back[12*ny-1-12*y-ymax-1:12*ny-1-12*y-ymin, 7*nx-1-7*x-xmax-1:7*nx-1-7*x-xmin] = c
+        image_back[dx*ny-1-dx*y-ymax-1:dx*ny-1-dx*y-ymin, dy*nx-1-dy*x-xmax-1:dy*nx-1-dy*x-xmin] = c
 
-      cs1 = (20,20,20)
-      cs2 = (200,200,200)
-      cs3 = (20,20,20)
+      cs1, ws1 = getShot(3*y)
+      cs2, ws2 = getShot(3*y+1)
+      cs3, ws3 = getShot(3*y+2)
 
-      ck1 = getColor1(x)
-      ck2 = (200,200,200)
-      ck3 = (20,20,20)
+      ck1, wk1 = getChain(3*x)
+      ck2, wk2 = getChain(3*x+1)
+      ck3, wk3 = getChain(3*x+2)
 
       b11 = get(3*x, 3*y)
       b21 = get(3*x+1, 3*y)
@@ -139,14 +294,3 @@ def render(pattern):
       set_back(6, 6, 9, 11, cs3)
 
   return image_front, image_back
-
-if __name__ == '__main__':
-  path = "C:/temp/jacq-suite/data/P1374_D1694"
-
-  program = cv.imread(path+"/pattern/program.png", flags=cv.IMREAD_UNCHANGED)
-  program = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
-
-  front, back  = render(program)
-
-  cv.imwrite(path+"/pattern/texture_front.png", cv.cvtColor(front, cv.COLOR_RGBA2BGRA))
-  cv.imwrite(path+"/pattern/texture_back.png", cv.cvtColor(back, cv.COLOR_RGBA2BGRA))

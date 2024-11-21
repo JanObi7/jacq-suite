@@ -1,7 +1,10 @@
 import os, json
 import numpy as np
 import cv2 as cv
-import JacqPattern, JacqProgram
+import JacqPattern, JacqProgram, JacqCard
+import math
+
+z = 2
 
 class Project:
 
@@ -115,7 +118,6 @@ class Project:
       self.design = cv.cvtColor(self.design, cv.COLOR_BGRA2RGBA)
 
       # create frame mask
-      z = 4
       w = self.config["design"]["width"]
       h = self.config["design"]["height"]
       dx = self.config["design"]["dx"]
@@ -132,7 +134,6 @@ class Project:
       self.saveDesign()
 
   def getDesign(self, framed, k1, k2, s1, s2):
-    z = 4
     w = self.config["design"]["width"]
     h = self.config["design"]["height"]
     dx = self.config["design"]["dx"]
@@ -158,7 +159,6 @@ class Project:
     cv.imwrite(self.path+"/pattern/design_full.png", image)
 
   def loadScans(self):
-    z = 4
     nx = self.config["design"]["width"]
     ny = self.config["design"]["height"]
     dx = self.config["design"]["dx"]
@@ -236,6 +236,8 @@ class Project:
   def buildProgram(self):
     red = (255,0,0,255)
     white = (255,255,255,255)
+    gray = (127,127,127,255)
+    black = (0,0,0,255)
 
     w = self.config["design"]["width"]
     h = self.config["design"]["height"]
@@ -246,45 +248,142 @@ class Project:
 
     nk = self.config["program"]["nk"]
     ns = self.config["program"]["ns"]
-    dk = self.config["program"]["dk"]
-    ds = self.config["program"]["ds"]
-
-
-    self.program = np.zeros((ns, nk, 4), np.uint8)
-
-    def getPattern(x, y):
-      return tuple(self.design[h-1-(y%rh)-ry, x%rw+rx].tolist())
-
-    def setProgram(k, s, color):
-      self.program[ns-1-s, k] = color
+    dk = self.config["design"]["dx"]
+    ds = self.config["design"]["dy"]
+    rule = self.config["program"]["rule"]
 
     # rules
-    def rule (color, x, y):
-      if color == red:
-        return red
+    def map (k, s):
+      if rule == "1x1-R1-red":
+        x = k%rw
+        y = s%rh
+        color = tuple(self.design[h-1-y-ry, x+rx].tolist())
+        if color == red:
+          return red
+        else:
+          return white
+
+      elif rule == "3x3-V2-red":
+        binding_1 = [
+          [white, red, white, white],
+          [red, white, white, white],
+          [white, white, red, white],
+          [white, white, white, red],
+        ]
+
+        binding_2 = [
+          [white, white, white, red],
+          [white, white, red, white],
+          [red, white, white, white],
+          [white, red, white, white],
+        ]
+
+        x = int(k/3)
+        i = k%3
+        y = int(s/3)
+        j = s%3
+
+        color = tuple(self.design[h-1-y-ry, x+rx].tolist())
+
+        ib = x%4
+        jb = y%4
+
+        # K1/S1: bei weiß genommen, sonst aus Bindung1 weiß genommen
+        if i == 0 and j == 0:
+          if color == white:
+            return red
+          else:
+            if binding_1[jb][ib] == white:
+              return red
+            else:
+              return white
+        
+        # K1/S2: bei weiß genommen
+        elif i == 0 and j == 1:
+          if color == white:
+            return red
+          else:
+            return white
+          
+        # K1/S3: leer
+        elif i == 0 and j == 2:
+          return white
+
+        # K2/S1: bei rot genommen
+        elif i == 1 and j == 0:
+          if color == red:
+            return red
+          else:
+            return white
+          
+        # K2/S2: bei rot genommen, sonst aus Bindung1 weiß genommen
+        elif i == 1 and j == 1:
+          if color == red:
+            return red
+          else:
+            if binding_1[jb][ib] == white:
+              return red
+            else:
+              return white
+        
+        # K2/S3: leer
+        elif i == 1 and j == 2:
+          return white
+
+        # K3/S1: bei rot aus Bindung2 weiß genommen
+        elif i == 2 and j == 0:
+          if color == red:
+            if binding_2[jb][ib] == white:
+              return red
+            else:
+              return white
+          else:
+            return white
+        
+        # K3/S2: bei weiß aus Bindung2 weiß genommen
+        elif i == 2 and j == 1:
+          if color == white:
+            if binding_2[jb][ib] == white:
+              return red
+            else:
+              return white
+          else:
+            return white
+        
+        # K3/S3: voll
+        elif i == 2 and j == 2:
+          return red
+
+        else:
+          return white
+
       else:
         return white
 
+    self.program = np.zeros((ns, nk, 4), np.uint8)
     for k in range(nk):
       for s in range(ns):
-        color = getPattern(k, s)
-
-        setProgram(k, s, rule(color, k, s))
+        self.program[ns-1-s, k] = map(k, s)
 
     cv.imwrite(self.path+"/pattern/program.png", cv.cvtColor(self.program, cv.COLOR_RGBA2BGRA))
 
   def renderProgram(self):
     nk = self.config["program"]["nk"]
     ns = self.config["program"]["ns"]
-    dk = self.config["program"]["dk"]
-    ds = self.config["program"]["ds"]
-    image = JacqProgram.renderProgram(self.program, nk, ns, dk, ds)
+    dk = self.config["design"]["dx"]
+    ds = self.config["design"]["dy"]
+    program = cv.imread(self.path+"/pattern/program.png")
+    program = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
+    image = JacqProgram.renderProgram(program, nk, ns, dk, ds)
     cv.imwrite(self.path+"/pattern/program_full.png", image)
 
-if __name__ == '__main__':
-  project = Project("c:/temp/jacq-suite/data/D2132")
+  def generateCards(self):
+    JacqCard.buildCards(self.path)
+    JacqCard.renderCards(self.path)
 
-  project.renderDesign()
-  # project.buildProgram()
-  # project.renderProgram()
-  
+if __name__ == '__main__':
+  project = Project("C:/temp/jacq-suite/data/P1374_D1694")
+
+  project.buildProgram()
+  project.renderProgram()
+

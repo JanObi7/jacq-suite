@@ -7,13 +7,15 @@ import sys, os
 from functools import partial
 
 from PySide6 import QtWidgets, QtGui
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import QSize, QPoint
+from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush
 from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox
 from PySide6.QtWidgets import QVBoxLayout, QListWidget, QLabel, QWidget, QHBoxLayout, QMessageBox
 import JacqScan, JacqPattern, JacqCard, JacqWeave
 from views import PatternView
 
 from project import Project
+
 
 #############################################################################
 class MainWindow(QtWidgets.QMainWindow):
@@ -37,10 +39,11 @@ class MainWindow(QtWidgets.QMainWindow):
     menu.addAction("Ausgeben", self.renderPattern)
 
     menu = menubar.addMenu("Patrone")
-    menu.addAction("Erstellen")
-    menu.addAction("Ausgeben")
+    menu.addAction("Erstellen", self.buildProgram)
+    menu.addAction("Ausgeben", self.renderProgram)
     menu.addSeparator()
     menu.addAction("Karten ausgeben", self.generateCards)
+    menu.addAction("Karten stanzen", self.stampCards)
     menu.addSeparator()
     menu.addAction("Stoff ausgeben", self.renderTexture)
 
@@ -92,7 +95,7 @@ class MainWindow(QtWidgets.QMainWindow):
     nk = QLineEdit(str(self.project.config["design"]["width"]))
     ns = QLineEdit(str(self.project.config["design"]["height"]))
     div = QComboBox()
-    div.addItems(["4-16", "5-16", "6-20", "7-12", "10-12"])
+    div.addItems(["4-16", "5-16", "6-20", "7-12", "7-16", "10-12"])
     div.setCurrentText(str(self.project.config["design"]["dy"]) + "-" + str(self.project.config["design"]["dx"]))
 
     sample = QComboBox()
@@ -192,14 +195,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
   def renderPattern(self):
     self.project.renderDesign()
-    self.showMessage("Muster erstellt", "Das Muster wurde erstellt.")
+    self.showMessage("Muster ausgeben", "Das Muster wurde ausgegeben.")
 
   def generateCards(self):
     self.project.generateCards()
-    self.showMessage("Karten erstellt", "Die Karten wurden erstellt.")
+    self.showMessage("Karten ausgegeben", "Die Karten wurden ausgegeben.")
+
+  def stampCards(self):
+    cards = JacqCard.readCards(self.project.path)
+    dialog = StampDialog(self, cards)
+    dialog.exec()
 
   def renderTexture(self):
     self.project.renderTexture()
+
+  def buildProgram(self):
+    self.project.buildProgram()
+    self.showMessage("Patrone erstellt", "Die Patrone wurde erstellt.")
+
+  def renderProgram(self):
+    self.project.renderProgram()
+    self.showMessage("Patrone ausgeben", "Die Patrone wurde ausgegeben.")
 
   def editScan(self, scan):
     

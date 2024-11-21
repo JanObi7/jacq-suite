@@ -206,7 +206,7 @@ def render(pattern, dk, ds):
       if color == red:
         image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (0,0,200)
       elif color == empty:
-        image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (200,100,100)
+        image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (100,100,100)
 
   # draw grey horizontal lines
   for s in range(ns+1):

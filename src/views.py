@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, Signal, Slot
 
 from project import Project
 
-z = 4
+z = 2
 
 class PatternScene(QGraphicsScene):
     selectionChanged = Signal(int, int)
@@ -124,10 +124,10 @@ class PatternScene(QGraphicsScene):
 
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         key = event.key()
-        print(key)
+        # print(key)
 
         if key == Qt.Key.Key_Space:
-            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 150)
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 180)
             self.updatePattern()
 
         if key == Qt.Key.Key_1:
@@ -178,6 +178,13 @@ class PatternScene(QGraphicsScene):
         if key == Qt.Key.Key_S:
             self.oy += 1
             self.scans.setPos(self.ox, self.oy)
+
+        if key == Qt.Key.Key_R:
+            self.project.config["design"]["rx"] = self.k1
+            self.project.config["design"]["ry"] = self.project.config["design"]["height"] - self.s2 - 1
+            self.project.config["design"]["rw"] = self.k2-self.k1+1
+            self.project.config["design"]["rh"] = self.s2-self.s1+1
+            self.project.saveConfig()
 
 
         return super().keyReleaseEvent(event)

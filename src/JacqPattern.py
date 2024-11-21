@@ -187,7 +187,7 @@ def edit(pattern, dk, ds):
   return pattern
 
 def render(pattern, dk, ds):
-  ns, nk = np.shape(pattern)
+  ns, nk, _ = np.shape(pattern)
 
   # build image
   image = np.zeros((dk*ns+400, ds*nk+400, 3), np.uint8)
@@ -196,12 +196,17 @@ def render(pattern, dk, ds):
   image[:,:] = (200,220,220)
 
   # set red fields
+  red = (255,0,0,255)
+  white = (255,255,255,255)
+  empty = (0,0,0,0)
+
   for k in range(nk):
     for s in range(ns):
-      if pattern[ns-s-1,k] == 0:
+      color = (int(pattern[ns-s-1,k][0]), int(pattern[ns-s-1,k][1]), int(pattern[ns-s-1,k][2]), int(pattern[ns-s-1,k][3]))
+      if color == red:
         image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (0,0,200)
-      elif pattern[ns-s-1,k] == 127:
-        image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (200,100,100)
+      elif color == empty:
+        image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (100,100,100)
 
   # draw grey horizontal lines
   for s in range(ns+1):

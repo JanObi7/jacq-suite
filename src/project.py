@@ -39,10 +39,8 @@ class Project:
     self.saveConfig()
 
     # create subdirs
-    os.mkdir(self.path+"/pattern")
     os.mkdir(self.path+"/scans")
     os.mkdir(self.path+"/cards")
-    os.mkdir(self.path+"/textures")
 
     # pattern
     self.initDesign()
@@ -112,7 +110,7 @@ class Project:
             self.design[s,k+13] = red
 
   def loadDesign(self):
-    filename = self.path+"/pattern/design.png"
+    filename = self.path+"/design.png"
     if os.path.exists(filename):
       self.design = cv.imread(filename, flags=cv.IMREAD_UNCHANGED)
       self.design = cv.cvtColor(self.design, cv.COLOR_BGRA2RGBA)
@@ -152,11 +150,11 @@ class Project:
 
   def saveDesign(self):
     pattern = cv.cvtColor(self.design, cv.COLOR_RGBA2BGRA)
-    cv.imwrite(self.path+"/pattern/design.png", pattern)
+    cv.imwrite(self.path+"/design.png", pattern)
 
   def renderDesign(self):
     image = JacqPattern.render(self.design, self.config["design"]["dx"], self.config["design"]["dy"])
-    cv.imwrite(self.path+"/pattern/design_full.png", image)
+    cv.imwrite(self.path+"/design_full.png", image)
 
   def loadScans(self):
     nx = self.config["design"]["width"]
@@ -263,6 +261,15 @@ class Project:
         else:
           return white
 
+      elif rule == "1x1-R1-white":
+        x = k%rw
+        y = s%rh
+        color = tuple(self.design[h-1-y-ry, x+rx].tolist())
+        if color == white:
+          return red
+        else:
+          return white
+
       elif rule == "3x3-V2-red":
         binding_1 = [
           [white, red, white, white],
@@ -365,32 +372,32 @@ class Project:
       for s in range(ns):
         self.program[ns-1-s, k] = map(k, s)
 
-    cv.imwrite(self.path+"/pattern/program.png", cv.cvtColor(self.program, cv.COLOR_RGBA2BGRA))
+    cv.imwrite(self.path+"/program.png", cv.cvtColor(self.program, cv.COLOR_RGBA2BGRA))
 
   def renderProgram(self):
     nk = self.config["program"]["nk"]
     ns = self.config["program"]["ns"]
     dk = self.config["design"]["dx"]
     ds = self.config["design"]["dy"]
-    program = cv.imread(self.path+"/pattern/program.png")
+    program = cv.imread(self.path+"/program.png")
     program = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
     image = JacqProgram.renderProgram(program, nk, ns, dk, ds)
-    cv.imwrite(self.path+"/pattern/program_full.png", image)
+    cv.imwrite(self.path+"/program_full.png", image)
 
   def generateCards(self):
     JacqCard.buildCards(self.path)
     JacqCard.renderCards(self.path)
 
   def renderTexture(self, name):
-    program = cv.cvtColor(cv.imread(self.path+"/pattern/program.png", flags=cv.IMREAD_UNCHANGED), cv.COLOR_BGRA2RGBA)
+    program = cv.cvtColor(cv.imread(self.path+"/program.png", flags=cv.IMREAD_UNCHANGED), cv.COLOR_BGRA2RGBA)
 
     front, back  = JacqWeave.render(program, self.config[name])
 
-    cv.imwrite(f"{self.path}/pattern/{name}_front.png", cv.cvtColor(front, cv.COLOR_RGBA2BGRA))
-    cv.imwrite(f"{self.path}/pattern/{name}_back.png", cv.cvtColor(back, cv.COLOR_RGBA2BGRA))
+    cv.imwrite(f"{self.path}/{name}_front.png", cv.cvtColor(front, cv.COLOR_RGBA2BGRA))
+    cv.imwrite(f"{self.path}/{name}_back.png", cv.cvtColor(back, cv.COLOR_RGBA2BGRA))
 
 if __name__ == '__main__':
-  project = Project("C:/temp/jacq-suite/data/TH4235_P2383i")
+  project = Project("C:/temp/jacq-suite/data/D1723_P1981")
 
   # project.buildProgram()
   # project.renderProgram()

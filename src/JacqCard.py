@@ -3,7 +3,7 @@ import numpy as np
 import csv
 
 def buildCards(path):
-  program = cv.imread(path+"/pattern/program.png")
+  program = cv.imread(path+"/program.png")
   pattern = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
   ns, nk, _ = np.shape(pattern)
 

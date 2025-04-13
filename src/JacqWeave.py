@@ -15,6 +15,135 @@ def render(program, config):
   # helper
   def lighten(color, percent):
     return (
+      min(int(color[0]/100*(100+percent)),255),
+      min(int(color[1]/100*(100+percent)),255),
+      min(int(color[2]/100*(100+percent)),255),
+    )
+
+  # getter and setter
+  def get(k, s):
+    return tuple(program[ns-1-s%ns, k%nk].tolist()) == (255, 0, 0, 255)
+
+  # color getter
+  def getShot(s):
+    n = len(config["shots"])
+    i = int(s/n)
+    for id, shot in config["shots"][s%n].items():
+      if id == "*": return config["colors"][shot["color"]], shot["width"]
+
+  def getChain(k):
+    n = len(config["chains"])
+    i = int(k/n)
+    for id, chain in config["chains"][k%n].items():
+      if id == "*":
+        return config["colors"][chain["color"]], chain["width"]
+      elif ":" in id:
+        i1, i2 = id.split(":")
+        if i >= int(i1)-1 and i <= int(i2)-1:
+          return config["colors"][chain["color"]], chain["width"]
+      elif int(id)-1 == i:
+        return config["colors"][chain["color"]], chain["width"]
+
+
+  # def bindings(s):
+  #   # zählt die Abbindungen wo sich zwei nebeneinander liegende (0 oder 1 Abstand) Kettfäden kreuzen
+  #   b = 0
+  #   for k in range(nk):
+  #     b11 = get(k,s)
+  #     b12 = get(k,s+1)
+  #     b21 = get(k+1,s)
+  #     b22 = get(k+1,s+1)
+  #     b31 = get(k+2,s)
+  #     b32 = get(k+2,s+1)
+  #     if b11 and not b12 and (not b21 and b22):
+  #       b += 1
+  #     if not b11 and b12 and (b21 and not b22):
+  #       b += 1
+  #   return b
+  
+  fy = 0
+  s = 0
+  while fy < height:
+    fx = 0
+    k = 0
+    while fx < width:
+
+      def draw_front(x1, y1, x2, y2, c, o):
+        if o == "v" and x2-x1 >= 5:
+          image_front[height-y2:height-y1, x1:x2] = lighten(c, -20)
+          image_front[height-y2:height-y1, x1:x2-1] = lighten(c, +0)
+          image_front[height-y2:height-y1, x1+3:x2-1] = lighten(c, 20)
+        elif o == "h" and y2-y1 >= 7:
+          image_front[height-y2:height-y1, x1:x2] = lighten(c, -40)
+          image_front[height-y2+1:height-y1-8, x1:x2] = lighten(c, 0)
+          image_front[height-y2+2:height-y1-14, x1:x2] = lighten(c, 60)
+        else:
+          image_front[height-y2:height-y1, x1:x2] = c
+
+
+      def draw_back(x, y, c, o):
+        if o == "v" and x >= 5:
+          image_back[height-fy-y:height-fy, width-fx-x:width-fx] = lighten(c, -25)
+          image_back[height-fy-y:height-fy, width-fx-x+1:width-fx-1] = lighten(c, 0)
+          image_back[height-fy-y:height-fy, width-fx-x+2:width-fx-2] = lighten(c, 10)
+        elif o == "h" and y >= 7:
+          image_back[height-fy-y:height-fy, width-fx-x:width-fx] = lighten(c, -25)
+          image_back[height-fy-y+1:height-fy-2, width-fx-x:width-fx] = lighten(c, 0)
+          image_back[height-fy-y+2:height-fy-4, width-fx-x:width-fx] = lighten(c, 10)
+        else:
+          image_back[height-fy-y:height-fy, width-fx-x:width-fx] = c
+
+
+      ck, wk = getChain(k)
+      cs, ws = getShot(s)
+
+      h0 = get(k, s-1)
+      h1 = get(k, s)
+      h2 = get(k, s+1)
+
+      if h1:
+        draw_front(fx,fy,fx+wk,fy+ws,cs,"h")
+
+        if h0:
+          draw_front(fx,fy,fx+wk,fy+int(ws/2),lighten(ck,20),"v")
+        else:
+          draw_front(fx,fy,fx+wk,fy+int(ws/2),lighten(ck,-40),"v")
+
+        if h2:
+          draw_front(fx,fy+int(ws/2),fx+wk,fy+ws,lighten(ck,20),"v")
+        else:
+          draw_front(fx,fy+int(ws/2),fx+wk,fy+ws,lighten(ck,40),"v")
+
+        # draw_back(wk,ws,cs,"h")
+      else:
+        draw_front(fx,fy,fx+wk,fy+ws,cs,"h")
+
+        # draw_back(wk,ws,ck,"v")
+
+      # weiter in x Richtung
+      fx += wk
+      k += 1
+
+    # next shot
+    fy += ws
+    s += 1
+
+  return image_front, image_back
+
+################################################################################################
+def render_(program, config):
+  ns, nk, _ = np.shape(program)
+
+  width = config["width"]
+  height = config["height"]
+
+  # build image
+  image_front = np.zeros((height, width, 3), np.uint8)
+  image_back = np.zeros((height, width, 3), np.uint8)
+
+  # helper
+  def lighten(color, percent):
+    return (
       int(color[0]/100*(100+percent)),
       int(color[1]/100*(100+percent)),
       int(color[2]/100*(100+percent)),
@@ -41,6 +170,8 @@ def render(program, config):
         i1, i2 = id.split(":")
         if i >= int(i1)-1 and i <= int(i2)-1:
           return config["colors"][chain["color"]], chain["width"]
+      elif int(id)-1 == i:
+        return config["colors"][chain["color"]], chain["width"]
 
 
   # def bindings(s):
@@ -86,13 +217,13 @@ def render(program, config):
 
       def draw_front(x, y, c, o):
         if o == "v" and x >= 5:
-          image_front[height-fy-y:height-fy, fx:fx+x] = lighten(c, -25)
-          image_front[height-fy-y:height-fy, fx+1:fx+x-1] = lighten(c, 0)
-          image_front[height-fy-y:height-fy, fx+2:fx+x-2] = lighten(c, 10)
+          image_front[height-fy-y:height-fy, fx:fx+x] = lighten(c, -20)
+          image_front[height-fy-y:height-fy, fx+1:fx+x-1] = lighten(c, +0)
+          image_front[height-fy-y:height-fy, fx+3:fx+x-1] = lighten(c, 20)
         elif o == "h" and y >= 7:
-          image_front[height-fy-y:height-fy, fx:fx+x] = lighten(c, -25)
-          image_front[height-fy-y+1:height-fy-2, fx:fx+x] = lighten(c, 0)
-          image_front[height-fy-y+2:height-fy-4, fx:fx+x] = lighten(c, 10)
+          image_front[height-fy-y:height-fy, fx:fx+x] = lighten(c, -50)
+          image_front[height-fy-y+2:height-fy-6, fx:fx+x] = lighten(c, -20)
+          image_front[height-fy-y+4:height-fy-12, fx:fx+x] = lighten(c, 20)
         else:
           image_front[height-fy-y:height-fy, fx:fx+x] = c
 

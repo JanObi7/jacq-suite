@@ -10,9 +10,9 @@ from PySide6 import QtWidgets, QtGui
 from PySide6.QtCore import QSize, QPoint
 from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush
 from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox
-from PySide6.QtWidgets import QVBoxLayout, QListWidget, QLabel, QWidget, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QVBoxLayout, QListWidget, QLabel, QWidget, QHBoxLayout, QMessageBox, QStackedLayout
 import JacqScan, JacqPattern, JacqCard, JacqWeave
-from views import PatternView
+from views import PatternView, PointSelector
 
 from project import Project
 
@@ -95,7 +95,7 @@ class MainWindow(QtWidgets.QMainWindow):
     nk = QLineEdit(str(self.project.config["design"]["width"]))
     ns = QLineEdit(str(self.project.config["design"]["height"]))
     div = QComboBox()
-    div.addItems(["4-16", "5-16", "6-20", "7-12", "7-16", "10-12"])
+    div.addItems(["4-16", "5-16", "6-16", "6-20", "7-12", "7-16", "8-18", "9-8", "10-12"])
     div.setCurrentText(str(self.project.config["design"]["dy"]) + "-" + str(self.project.config["design"]["dx"]))
 
     sample = QComboBox()
@@ -291,6 +291,17 @@ class MainWindow(QtWidgets.QMainWindow):
     point_br.pressed.connect(br_pressed)
 
     dialog.exec()
+
+  def selectScanPoint(self, filename):
+    dialog = QtWidgets.QDialog(self)
+    layout = QStackedLayout(dialog)
+
+    selector = PointSelector(None, filename)
+    layout.addWidget(selector)
+
+    dialog.exec()
+
+    return selector.scene.x, selector.scene.y
 
 
 #############################################################################

@@ -254,3 +254,38 @@ class PatternView(QGraphicsView):
                 self.scale(0.8,0.8)
 
         return super().wheelEvent(event)
+
+class PointSelectorScene(QGraphicsScene):
+    def __init__(self, parent, filename):
+        super().__init__(parent)
+
+        scan = cv.imread(filename, flags=cv.IMREAD_UNCHANGED)
+        scan = cv.cvtColor(scan, cv.COLOR_BGR2RGB)  
+        qimg = QImage(scan.data,scan.shape[1], scan.shape[0], QImage.Format.Format_RGBA8888)
+        # self.pixmap = self.addPixmap(QPixmap(qimg))
+        self.addLine(0,0,100,100,QPen(QColor("black")))
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        print(event)
+        self.x = event.scenePos().x()
+        self.y = event.scenePos().y()
+
+        return super().mouseReleaseEvent(event)
+
+class PointSelector(QGraphicsView):
+    def __init__(self, parent, filename):
+        super().__init__(parent)
+
+        self.scene = PointSelectorScene(self, filename)
+
+        self.setScene(self.scene)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        dy = event.angleDelta().y()
+        if dy > 0:
+            self.scale(1.25,1.25)
+        else:
+            self.scale(0.8,0.8)
+
+        return super().wheelEvent(event)
+

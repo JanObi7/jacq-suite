@@ -5,57 +5,75 @@ from PySide6.QtWidgets import QWidget
 import JacqCard
 
 from tinkerforge.ip_connection import IPConnection
-from tinkerforge.brick_servo import BrickServo
+from tinkerforge.bricklet_servo_v2 import BrickletServoV2
+from tinkerforge.bricklet_io4_v2 import BrickletIO4V2
 import time, math
 
 #############################################################################
-class Actuators:
+class Hardware:
   HOST = "localhost"
   PORT = 4223
-  UID = "6JKyxU"
+  UID_S2 = "2cKV"
+  UID_S1 = "2cKN"
+  UID_IO = "27mU"
 
-  n = 4
-
-  def __init__(self):
+  def __init__(self, callback):
     try:
       # init tinkerforge
       self.ipcon = IPConnection() # Create IP connection
       self.ipcon.set_timeout(0.1)
-      self.srv = BrickServo(self.UID, self.ipcon) # Create device object
+      self.s1 = BrickletServoV2(self.UID_S1, self.ipcon) # Create device object
+      self.s2 = BrickletServoV2(self.UID_S2, self.ipcon) # Create device object
+      # self.io = BrickletIO4V2(self.UID_IO, self.ipcon) # Create device object
       self.ipcon.connect(self.HOST, self.PORT) # Connect to brickd
 
+      self.mapping = [
+        (self.s1, 9),
+        (self.s1, 8),
+        (self.s1, 7),
+        (self.s1, 6),
+        (self.s1, 3),
+        (self.s1, 2),
+        (self.s1, 1),
+        (self.s1, 0),
+        (self.s2, 9),
+        (self.s2, 8),
+        (self.s2, 7),
+        (self.s2, 6),
+        (self.s2, 3),
+        (self.s2, 2),
+        (self.s2, 1),
+        (self.s2, 0),
+      ]
       # configure and enable servos
-      for i in range(self.n):
-        self.srv.set_pulse_width(i, 500, 2500)
-        self.srv.set_degree(i, 0, 180)
-        self.srv.set_acceleration(i, 65535)
-        self.srv.set_velocity(i, 65535)
-        self.srv.enable(i)    
+      for i in range(16):
+        s, p = self.mapping[i]
+        s.set_pulse_width(p, 500, 2500)
+        s.set_degree(p, 0, 180)
+        s.set_motion_configuration(p, 500000, 500000, 500000)
+        s.set_enable(p, True)    
 
-        self.release(i)
+      # configure io
+      # self.io.register_callback(self.io.CALLBACK_INPUT_VALUE, callback)
+      # self.io.set_input_value_callback_configuration(0, 50, True)
 
-      # wait for releasing
-      time.sleep(2)
+      self.pressAll()
+      self.releaseAll()
 
       print("hardware initialized")
 
-    except:
+    except Exception as e:
+      print(e)
       print("hardware not initialized")
 
   def __del__(self):
-    try:
-      for i in range(self.n):
-        self.release(i)
-    except:
-      pass
-
-    # wait for releasing
-    time.sleep(2)
+    self.releaseAll()
 
     # disable servos
     try:
-      for i in range(self.n):
-        self.srv.disable(i)
+      for i in range(16):
+        s, p = self.mapping[i]
+        s.set_enable(p, False)
     except:
       pass
 
@@ -66,15 +84,33 @@ class Actuators:
     except:
       print("hardware not deinitialized")
 
+  def releaseAll(self):
+    # release all
+    for i in range(16):
+      self.release(i)
+
+    # wait for releasing
+    time.sleep(2)
+
+  def pressAll(self):
+    # release all
+    for i in range(16):
+      self.press(i)
+
+    # wait for releasing
+    time.sleep(2)
+
   def release(self, i):
     try:
-      self.srv.set_position(i, 180)
+      s, p = self.mapping[i]
+      s.set_position(p, 180)
     except:
       pass
 
   def press(self, i):
     try:
-      self.srv.set_position(i, 90)
+      s, p = self.mapping[i]
+      s.set_position(p, 90)
     except:
       pass
 
@@ -86,7 +122,7 @@ class CardStamper(QWidget):
 
     self.setWindowTitle("Karten stanzen")
 
-    self.hardware = Actuators()
+    self.hardware = Hardware(self.hardwareIoEvent)
 
     self.cards = cards
     self.selectCard(0)
@@ -117,12 +153,17 @@ class CardStamper(QWidget):
       else:
         c = -1
 
-      for i in  range(4):
+      for i in range(16):
         dot = f"dot_{c}_{i+1}"
         if dot in self.card and self.card[dot] == "1":
           self.hardware.press(i)
         else:
           self.hardware.release(i)
+
+  def hardwareIoEvent(self, channel, changed, value):
+    print("switch pressed")
+    if channel == 0 and changed and value == False:
+      self.setColumn(self.column + 1)
 
   def keyReleaseEvent(self, event: QKeyEvent):
     key = event.key()
@@ -192,7 +233,7 @@ class CardStamper(QWidget):
 
 if __name__ == '__main__':
   import JacqCard
-  cards = JacqCard.readCards("C:/temp/jacq-suite/data/P524_W.218.9")
+  cards = JacqCard.readCards("C:/temp/jacq-suite/data/D689_P524")
 
   app = QtWidgets.QApplication()
   win = CardStamper(cards)

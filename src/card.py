@@ -49,7 +49,7 @@ class Hardware:
       for i in range(16):
         s, p, dmin, dmax = self.mapping[i]
         s.set_pulse_width(p, 500, 2500)
-        s.set_degree(p, dmin, dmax)
+        s.set_degree(p, 0, 180)
         s.set_motion_configuration(p, 500000, 500000, 500000)
         s.set_enable(p, True)    
 

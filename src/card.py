@@ -28,28 +28,28 @@ class Hardware:
       self.ipcon.connect(self.HOST, self.PORT) # Connect to brickd
 
       self.mapping = [
-        (self.s1, 9),
-        (self.s1, 8),
-        (self.s1, 7),
-        (self.s1, 6),
-        (self.s1, 3),
-        (self.s1, 2),
-        (self.s1, 1),
-        (self.s1, 0),
-        (self.s2, 9),
-        (self.s2, 8),
-        (self.s2, 7),
-        (self.s2, 6),
-        (self.s2, 3),
-        (self.s2, 2),
-        (self.s2, 1),
-        (self.s2, 0),
+        (self.s1, 9, 90, 180),
+        (self.s1, 8, 90, 180),
+        (self.s1, 7, 90, 180),
+        (self.s1, 6, 90, 180),
+        (self.s1, 3, 90, 180),
+        (self.s1, 2, 90, 180),
+        (self.s1, 1, 90, 180),
+        (self.s1, 0, 90, 180),
+        (self.s2, 9, 90, 180),
+        (self.s2, 8, 90, 180),
+        (self.s2, 7, 90, 180),
+        (self.s2, 6, 90, 180),
+        (self.s2, 3, 90, 180),
+        (self.s2, 2, 90, 180),
+        (self.s2, 1, 90, 180),
+        (self.s2, 0, 90, 180),
       ]
       # configure and enable servos
       for i in range(16):
-        s, p = self.mapping[i]
+        s, p, dmin, dmax = self.mapping[i]
         s.set_pulse_width(p, 500, 2500)
-        s.set_degree(p, 0, 180)
+        s.set_degree(p, dmin, dmax)
         s.set_motion_configuration(p, 500000, 500000, 500000)
         s.set_enable(p, True)    
 
@@ -72,7 +72,7 @@ class Hardware:
     # disable servos
     try:
       for i in range(16):
-        s, p = self.mapping[i]
+        s, p, dmin, dmax = self.mapping[i]
         s.set_enable(p, False)
     except:
       pass
@@ -102,15 +102,15 @@ class Hardware:
 
   def release(self, i):
     try:
-      s, p = self.mapping[i]
-      s.set_position(p, 180)
+      s, p, dmin, dmax = self.mapping[i]
+      s.set_position(p, dmax)
     except:
       pass
 
   def press(self, i):
     try:
-      s, p = self.mapping[i]
-      s.set_position(p, 90)
+      s, p, dmin, dmax = self.mapping[i]
+      s.set_position(p, dmin)
     except:
       pass
 
@@ -136,7 +136,7 @@ class CardStamper(QWidget):
 
     self.setWindowTitle("Karten stanzen - " + self.card["name"])
 
-    self.setColumn(0)
+    self.setColumn(-1)
 
   def sizeHint(self):
     return QSize(1260,340)

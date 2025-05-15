@@ -7,6 +7,8 @@ import JacqCard
 from tinkerforge.ip_connection import IPConnection
 from tinkerforge.bricklet_servo_v2 import BrickletServoV2
 from tinkerforge.bricklet_io4_v2 import BrickletIO4V2
+from tinkerforge.bricklet_analog_in_v3 import BrickletAnalogInV3
+
 import time, math
 
 #############################################################################
@@ -16,6 +18,7 @@ class Hardware:
   UID_S2 = "2cKV"
   UID_S1 = "2cKN"
   UID_IO = "27mU"
+  UID_AI = "27eD"
 
   def __init__(self, callback):
     try:
@@ -25,25 +28,27 @@ class Hardware:
       self.s1 = BrickletServoV2(self.UID_S1, self.ipcon) # Create device object
       self.s2 = BrickletServoV2(self.UID_S2, self.ipcon) # Create device object
       # self.io = BrickletIO4V2(self.UID_IO, self.ipcon) # Create device object
+      self.ai = BrickletAnalogInV3(self.UID_AI, self.ipcon) # Create device object
       self.ipcon.connect(self.HOST, self.PORT) # Connect to brickd
 
+      pmin = 80
       self.mapping = [
-        (self.s1, 9, 90, 180),
-        (self.s1, 8, 90, 180),
-        (self.s1, 7, 90, 180),
-        (self.s1, 6, 90, 180),
-        (self.s1, 3, 90, 180),
-        (self.s1, 2, 90, 180),
-        (self.s1, 1, 90, 180),
-        (self.s1, 0, 90, 180),
-        (self.s2, 9, 90, 180),
-        (self.s2, 8, 90, 180),
-        (self.s2, 7, 90, 180),
-        (self.s2, 6, 90, 180),
-        (self.s2, 3, 90, 180),
-        (self.s2, 2, 90, 180),
-        (self.s2, 1, 90, 180),
-        (self.s2, 0, 90, 180),
+        (self.s1, 9, pmin, 180),
+        (self.s1, 8, pmin, 180),
+        (self.s1, 7, pmin, 180),
+        (self.s1, 6, pmin, 180),
+        (self.s1, 3, pmin, 180),
+        (self.s1, 2, pmin, 180),
+        (self.s1, 1, pmin, 180),
+        (self.s1, 0, pmin, 180),
+        (self.s2, 9, pmin, 180),
+        (self.s2, 8, pmin, 180),
+        (self.s2, 7, pmin, 180),
+        (self.s2, 6, pmin, 180),
+        (self.s2, 3, pmin, 180),
+        (self.s2, 2, pmin, 180),
+        (self.s2, 1, pmin, 180),
+        (self.s2, 0, pmin, 180),
       ]
       # configure and enable servos
       for i in range(16):
@@ -56,6 +61,10 @@ class Hardware:
       # configure io
       # self.io.register_callback(self.io.CALLBACK_INPUT_VALUE, callback)
       # self.io.set_input_value_callback_configuration(0, 50, True)
+
+      # configure ao
+      self.ai.register_callback(self.ai.CALLBACK_VOLTAGE, callback)
+      self.ai.set_voltage_callback_configuration(10, True, 'x', 0, 5)
 
       self.pressAll()
       self.releaseAll()
@@ -122,7 +131,9 @@ class CardStamper(QWidget):
 
     self.setWindowTitle("Karten stanzen")
 
-    self.hardware = Hardware(self.hardwareIoEvent)
+    self.last_voltage = 5000
+    self.switch_voltage = 2000
+    self.hardware = Hardware(self.hardwareAiEvent)
 
     self.cards = cards
     self.selectCard(0)
@@ -164,6 +175,13 @@ class CardStamper(QWidget):
     print("switch pressed")
     if channel == 0 and changed and value == False:
       self.setColumn(self.column + 1)
+
+  def hardwareAiEvent(self, voltage):
+    if self.last_voltage < self.switch_voltage and voltage >= self.switch_voltage:
+      print("switch", voltage)
+      self.setColumn(self.column + 1)
+
+    self.last_voltage = voltage
 
   def keyReleaseEvent(self, event: QKeyEvent):
     key = event.key()
@@ -233,7 +251,7 @@ class CardStamper(QWidget):
 
 if __name__ == '__main__':
   import JacqCard
-  cards = JacqCard.readCards("C:/temp/jacq-suite/data/D689_P524")
+  cards = JacqCard.readCards("D:/temp/jacq-suite/data/D689_P524")
 
   app = QtWidgets.QApplication()
   win = CardStamper(cards)

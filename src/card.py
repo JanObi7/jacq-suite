@@ -132,7 +132,9 @@ class CardStamper(QWidget):
     self.setWindowTitle("Karten stanzen")
 
     self.last_voltage = 5000
-    self.switch_voltage = 2000
+    self.switch_voltage = 1100
+    self.max_voltage = 1250
+    self.min_voltage = 250
     self.hardware = Hardware(self.hardwareAiEvent)
 
     self.cards = cards

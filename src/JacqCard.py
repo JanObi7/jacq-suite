@@ -3,12 +3,12 @@ import numpy as np
 import json
 
 def readCards(path):
-  with open(path+"/cards/cards.json", 'r') as jsonfile:
+  with open(path+"/cards.json", 'r') as jsonfile:
     cards = json.load(jsonfile)
   return cards
 
 def writeCards(path, cards):
-  with open(path+"/cards/cards.json", 'w') as jsonfile:
+  with open(path+"/cards.json", 'w') as jsonfile:
     json.dump(cards, jsonfile)
 
 # create a cards

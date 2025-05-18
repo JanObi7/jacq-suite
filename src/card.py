@@ -66,12 +66,15 @@ class Hardware:
       self.ai.register_callback(self.ai.CALLBACK_VOLTAGE, callback)
       self.ai.set_voltage_callback_configuration(10, True, 'x', 0, 5)
 
+      print("hardware initialized")
+      self.ready = True
+
       self.pressAll()
       self.releaseAll()
 
-      print("hardware initialized")
-
     except Exception as e:
+      self.ready = False
+
       print(e)
       print("hardware not initialized")
 
@@ -94,34 +97,32 @@ class Hardware:
       print("hardware not deinitialized")
 
   def releaseAll(self):
-    # release all
-    for i in range(16):
-      self.release(i)
+    if self.ready:
+      # release all
+      for i in range(16):
+        self.release(i)
 
-    # wait for releasing
-    time.sleep(2)
+      # wait for releasing
+      time.sleep(2)
 
   def pressAll(self):
-    # release all
-    for i in range(16):
-      self.press(i)
+    if self.ready:
+      # press all
+      for i in range(16):
+        self.press(i)
 
-    # wait for releasing
-    time.sleep(2)
+      # wait for releasing
+      time.sleep(2)
 
   def release(self, i):
-    try:
+    if self.ready:
       s, p, dmin, dmax = self.mapping[i]
       s.set_position(p, dmax)
-    except:
-      pass
 
   def press(self, i):
-    try:
+    if self.ready:
       s, p, dmin, dmax = self.mapping[i]
       s.set_position(p, dmin)
-    except:
-      pass
 
 
 #############################################################################
@@ -149,26 +150,18 @@ class CardStamper(QWidget):
 
     self.setWindowTitle("Karten stanzen - " + self.card["name"])
 
-    self.setColumn(-1)
+    self.setColumn(0)
 
   def sizeHint(self):
     return QSize(1260,340)
   
   def setColumn(self, column):
-    if (column >= -2 and column <= 58):
+    if (column >= 0 and column <= 60):
       self.column = column
       self.repaint()
     
-      if column >= 0 and column <= 27:
-        c = self.column+1
-      elif column >= 29 and column <= 56:
-        c = self.column  
-      else:
-        c = -1
-
       for i in range(16):
-        dot = f"dot_{c}_{i+1}"
-        if dot in self.card and self.card[dot] == "1":
+        if self.card["data"][self.column][i] == 1:
           self.hardware.press(i)
         else:
           self.hardware.release(i)
@@ -188,6 +181,9 @@ class CardStamper(QWidget):
   def keyReleaseEvent(self, event: QKeyEvent):
     key = event.key()
 
+    if key == Qt.Key.Key_Backspace:
+      self.setColumn(0)
+ 
     if key == Qt.Key.Key_Space:
       self.setColumn(self.column + 1)
  
@@ -210,7 +206,7 @@ class CardStamper(QWidget):
       self.selectCard(self.idx-int(len(self.cards)/2))
  
   def mouseReleaseEvent(self, event):
-    idx = math.floor((event.position().x()-50-10)/20)
+    idx = math.floor((event.position().x()-20)/20)
     self.setColumn(idx)
  
   def paintEvent(self, event: QPaintEvent):
@@ -229,31 +225,22 @@ class CardStamper(QWidget):
       painter.drawEllipse(QPoint(x, 170), 15, 15)
 
     # set data holes
-    for c in range(28):
+    for c in range(60):
       for r in range(16):
-        # block 1
-        dot = f'dot_{c+1}_{r+1}'
-        if dot in self.card:
-          if self.card[dot] == "1":
-            painter.drawEllipse(QPoint(50+20+20*c, 20+20*r), 7, 7)
-
-        # block 2
-        dot = f'dot_{28+c+1}_{r+1}'
-        if dot in self.card:
-          if self.card[dot] == "1":
-            painter.drawEllipse(QPoint(50+580+20+20*c, 20+20*r), 7, 7)
+        if self.card["data"][c][r] == 1:
+          painter.drawEllipse(QPoint(30+20*c, 20+20*r), 7, 7)
 
     # draw selection
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(QColor(255,0,0,100))
-    painter.drawRect(50+10+20*self.column, 0, 21, 340)
+    painter.drawRect(20+20*self.column, 0, 21, 340)
 
 
 
 
 if __name__ == '__main__':
   import JacqCard
-  cards = JacqCard.readCards("D:/temp/jacq-suite/data/D689_P524")
+  cards = JacqCard.readCards("C:/temp/jacq-suite/data/TH913_3523")
 
   app = QtWidgets.QApplication()
   win = CardStamper(cards)

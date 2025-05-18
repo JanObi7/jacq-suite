@@ -1,75 +1,82 @@
 import cv2 as cv
 import numpy as np
-import csv
+import json
+
+def readCards(path):
+  with open(path+"/cards/cards.json", 'r') as jsonfile:
+    cards = json.load(jsonfile)
+  return cards
+
+def writeCards(path, cards):
+  with open(path+"/cards/cards.json", 'w') as jsonfile:
+    json.dump(cards, jsonfile)
+
+# create a cards
+def createCard(name, type, dots, ctrl):
+  card = { "name": name, "type": type, "data": [] }
+
+  # init data with zeros
+  if type == "880":
+    for x in range(61):
+      row = []
+      for y in range(16):
+        row += [0]
+      card["data"] += [row]
+
+    # set ctrl data
+    card["data"][0] = ctrl
+  
+    # set dots data
+    x = 2
+    y = 0
+    for dot in dots:
+      if dot == 1:
+        card["data"][x][y] = 1
+
+      # next dot
+      y += 1
+
+      # skip fixing holes
+      if x in [2,3,28,29,31,32,57,58] and y == 7:
+        y += 2
+
+      # next row
+      if y >= 16:
+        x += 1
+        y -= 16
+
+      # skip binding rows
+      if x in [1,30,59]:
+        x += 1
+
+  return card
 
 def buildCards(path):
   program = cv.imread(path+"/program.png")
   pattern = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
   ns, nk, _ = np.shape(pattern)
 
-  # prepare headers
-  headers = ['name']
-
-  # card with 2 x 440er blocks
-  for c in range(56):
-    for r in range(16):
-      if not (c in [0,1,26,27,28,29,54,55] and r in [7,8]):
-        headers.append(f'dot_{c+1}_{r+1}')
-
   # generate cards
   cards = []
 
-  # A cards
   for s in range(ns):
-    card = { "name": f"A{(s+1):03d}" }
+    # Leistensteuerung
+    if s%2 == 0: ctrl = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    else: ctrl = [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
+    # read data from program
+    dotsA = []
+    dotsB = []
     for k in range(880):
-      dot = headers[1+k]
+      dotsA.append(1 if tuple(pattern[ns-s-1,k].tolist()) == (255,0,0,255) else 0)
+      dotsB.append(1 if tuple(pattern[ns-s-1,880+k].tolist()) == (255,0,0,255) else 0)
 
-      # set dot for A (k: 1 - 880)
-      color = tuple(pattern[ns-s-1,k].tolist())
-      if color == (255,0,0,255):
-        card[dot] = 1
-      else:
-        card[dot] = 0
-
-    cards.append(card)
-
-  # B cards
-  for s in range(ns):
-    card = { "name": f"B{(s+1):03d}" }
-
-    for k in range(880):
-      dot = headers[1+k]
-
-      # set dot for B (k: 881 - 1760)
-      color = tuple(pattern[ns-s-1,880+k].tolist())
-      if color == (255,0,0,255):
-        card[dot] = 1
-      else:
-        card[dot] = 0
-
-    cards.append(card)
+    # build and append A and B cards
+    cards.append(createCard(f"A{(s+1):03d}", "880", dotsA, ctrl))
+    cards.append(createCard(f"B{(s+1):03d}", "880", dotsB, ctrl))
 
   # write cards
-  with open(path+"/cards/cards.csv", 'w', newline='') as csvfile:
-    writer = csv.DictWriter(csvfile, fieldnames=headers, delimiter=';')
-
-    writer.writeheader()
-    for card in cards:
-      writer.writerow(card)
-
-
-def readCards(path):
-  # read cards
-  cards = []
-
-  with open(path+'/cards/cards.csv', newline='') as csvfile:
-    reader = csv.DictReader(csvfile, delimiter=';')
-    for card in reader:
-      cards.append(card)
-
-  return cards
+  writeCards(path, cards)
 
 def renderCards(path):
   # read cards
@@ -94,22 +101,20 @@ def renderCards(path):
       cv.circle(image, (m+x, m+170), 15, (0,0,0), -1, cv.LINE_AA)
 
     # set data holes
-    for c in range(28):
-      for r in range(16):
-        # block 1
-        dot = f'dot_{c+1}_{r+1}'
-        if dot in card:
-          if card[dot] == "1":
-            cv.circle(image, (m+50+20+20*c, m+20+20*r), 7, (0,0,0), -1, cv.LINE_AA)
-
-        # block 2
-        dot = f'dot_{28+c+1}_{r+1}'
-        if dot in card:
-          if card[dot] == "1":
-            cv.circle(image, (m+50+580+20+20*c, m+20+20*r), 7, (0,0,0), -1, cv.LINE_AA)
+    for x in range(60):
+      for y in range(16):
+        if card["data"][x][y] == 1:
+          cv.circle(image, (m+50-20+20*x, m+20+20*y), 7, (0,0,0), -1, cv.LINE_AA)
 
     # write card label
     cv.putText(image, card["name"], (m+5,m+15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (50,50,50), 1, cv.LINE_AA)
 
     # save image
     cv.imwrite(path+f"/cards/{card["name"]}.png", image)
+
+
+
+if __name__ == "__main__":
+
+  buildCards("C:/temp/jacq-suite/data/TH913_3523")
+  renderCards("C:/temp/jacq-suite/data/TH913_3523")

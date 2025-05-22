@@ -1,8 +1,7 @@
 import os, json
 import numpy as np
 import cv2 as cv
-import JacqPattern, JacqProgram, JacqCard, JacqWeave
-import math
+import pattern, card, weave
 
 z = 2
 
@@ -32,8 +31,10 @@ class Project:
       "program": {
         "nk": 1760,
         "ns": 36,
+        "dk": 1,
+        "ds": 1,
         "config": "2x880",
-        "rule": "1-1-rapport-red"
+        "rule": "1x1-R1-red"
       },
     }
     self.saveConfig()
@@ -66,6 +67,16 @@ class Project:
     # read config
     w = self.config["design"]["width"]
     h = self.config["design"]["height"]
+
+    # reset rapport and program and save config
+    self.config["design"]["rx"] = 0
+    self.config["design"]["ry"] = 0
+    self.config["design"]["rw"] = w
+    self.config["design"]["rh"] = h
+    self.config["program"]["dk"] = self.config["design"]["dx"]
+    self.config["program"]["ds"] = self.config["design"]["dy"]
+
+    self.saveConfig()
 
     # create pattern
     self.design = np.zeros((h, w, 4), np.uint8)
@@ -153,7 +164,7 @@ class Project:
     cv.imwrite(self.path+"/design.png", pattern)
 
   def renderDesign(self):
-    image = JacqPattern.render(self.design, self.config["design"]["dx"], self.config["design"]["dy"])
+    image = pattern.render(self.design, self.config["design"]["dx"], self.config["design"]["dy"])
     cv.imwrite(self.path+"/design_full.png", image)
 
   def loadScans(self):
@@ -381,25 +392,27 @@ class Project:
     ds = self.config["design"]["dy"]
     program = cv.imread(self.path+"/program.png")
     program = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
-    image = JacqProgram.renderProgram(program, nk, ns, dk, ds)
+    image = pattern.renderProgram(program, nk, ns, dk, ds)
     cv.imwrite(self.path+"/program_full.png", image)
 
   def generateCards(self):
-    JacqCard.buildCards(self.path)
-    JacqCard.renderCards(self.path)
+    card.buildCards(self.path)
+    card.renderCards(self.path)
 
   def renderTexture(self, name):
     program = cv.cvtColor(cv.imread(self.path+"/program.png", flags=cv.IMREAD_UNCHANGED), cv.COLOR_BGRA2RGBA)
 
-    front, back  = JacqWeave.render(program, self.config[name])
+    front, back  = weave.render(program, self.config[name])
 
     cv.imwrite(f"{self.path}/{name}_front.png", cv.cvtColor(front, cv.COLOR_RGBA2BGRA))
     cv.imwrite(f"{self.path}/{name}_back.png", cv.cvtColor(back, cv.COLOR_RGBA2BGRA))
 
-if __name__ == '__main__':
-  project = Project("C:/temp/jacq-suite/data/D1723_P1981")
+  def readCards(self):
+    with open(self.path+"/cards.json", 'r') as jsonfile:
+      cards = json.load(jsonfile)
+    return cards
 
-  # project.buildProgram()
-  # project.renderProgram()
+  def writeCards(self, cards):
+    with open(self.path+"/cards.json", 'w') as jsonfile:
+      json.dump(cards, jsonfile)
 
-  project.renderTexture("texture1")

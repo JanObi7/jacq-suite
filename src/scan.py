@@ -2,56 +2,43 @@ version = "0.1"
 
 import numpy as np
 import cv2 as cv
-import json
-import sys, os
-from functools import partial
+import os
 
-from PySide6 import QtWidgets, QtGui
-from PySide6.QtCore import QSize, QPoint
-from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush
-from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox
+from PySide6.QtCore import Qt, QSize, QPoint
+from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush, QIcon, QAction
+from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox, QToolBar, QMainWindow, QDialog, QSizePolicy
 from PySide6.QtWidgets import QVBoxLayout, QListWidget, QLabel, QWidget, QHBoxLayout, QMessageBox, QStackedLayout
-import JacqScan, JacqPattern, JacqCard, JacqWeave
 from views import PatternView, PointSelector
 
-from project import Project
-
-
 #############################################################################
-class MainWindow(QtWidgets.QMainWindow):
+class MainWindow(QMainWindow):
 
-  def __init__(self):
+  def __init__(self, project):
     super().__init__()
 
-    self.setWindowIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), 'JacqSuite.ico')))
+    self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
+    self.setWindowTitle(f"JacqSuite")
 
-    menubar = self.menuBar()
+    scans_action = QAction(QIcon('./src/assets/scans.png'), 'Scans konfigurieren', self)
+    scans_action.triggered.connect(self.editScans)
 
-    menu = menubar.addMenu("Projekt")
-    menu.addAction("Neu", self.newProject)
-    menu.addAction("Öffnen", self.openProject)
-    menu.addSeparator()
-    menu.addAction("Beenden", self.close)
+    close_action = QAction(QIcon('./src/assets/close.png'), 'Bearbeitung beenden', self)
+    close_action.triggered.connect(self.close)
 
-    menu = menubar.addMenu("Muster")
-    menu.addAction("Konfigurieren", self.initPattern)
-    menu.addAction("Scans ...", self.editScans)
-    menu.addAction("Ausgeben", self.renderPattern)
+    toolbar = QToolBar('Main ToolBar')
+    toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+    toolbar.setIconSize(QSize(64, 64))
+    self.addToolBar(toolbar)
 
-    menu = menubar.addMenu("Patrone")
-    menu.addAction("Erstellen", self.buildProgram)
-    menu.addAction("Ausgeben", self.renderProgram)
-    menu.addSeparator()
-    menu.addAction("Karten ausgeben", self.generateCards)
-    menu.addAction("Karten stanzen", self.stampCards)
-    menu.addSeparator()
-    menu.addAction("Stoff ausgeben", self.renderTexture)
+    spacer = QWidget()
+    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    toolbar.addAction(scans_action)
+    toolbar.addWidget(spacer)
+    toolbar.addAction(close_action)
 
     # data
-    if config["last_project"]:
-      self.project = Project(config["last_project"])
-    else:
-      self.openProject()
+    self.project = project
 
     self.editor = PatternView(self, self.project)
     self.setCentralWidget(self.editor)
@@ -64,32 +51,15 @@ class MainWindow(QtWidgets.QMainWindow):
       return super().closeEvent(event)
 
   def updateViews(self):
-      self.setWindowTitle(f"JacqSuite {version} - {self.project.path}")
+      self.setWindowTitle(f"JacqSuite - {self.project.path}")
 
       if hasattr(self, "editor"):
         self.editor.scene.updatePattern()
         self.project.loadScans()
         self.editor.scene.updateScans()
 
-  def newProject(self):
-    path = QFileDialog.getExistingDirectory(self, "Leeren Ordner auswählen", ".", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-    if path:
-      config["last_project"] = path
-      saveAppConfig()
-      self.project = Project(path)
-      self.initPattern()
-      self.updateViews()
-    
-  def openProject(self):
-    path = QFileDialog.getExistingDirectory(self, "Ordner auswählen", "./data", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-    if path:
-      config["last_project"] = path
-      saveAppConfig()
-      self.project = Project(path)
-      self.updateViews()
-
   def initPattern(self):
-    dialog = QtWidgets.QDialog(self)
+    dialog = QDialog(self)
     layout = QFormLayout()
 
     nk = QLineEdit(str(self.project.config["design"]["width"]))
@@ -132,7 +102,7 @@ class MainWindow(QtWidgets.QMainWindow):
     dialog.exec()
 
   def editScans(self):
-    dialog = QtWidgets.QDialog(self)
+    dialog = QDialog(self)
 
     scans = QListWidget()
 
@@ -187,39 +157,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     self.updateViews()
 
-  def showMessage(self, title, text):
-    msgBox = QMessageBox(self)
-    msgBox.setWindowTitle(title)
-    msgBox.setText(text)
-    msgBox.exec();
-
-  def renderPattern(self):
-    self.project.renderDesign()
-    self.showMessage("Muster ausgeben", "Das Muster wurde ausgegeben.")
-
-  def generateCards(self):
-    self.project.generateCards()
-    self.showMessage("Karten ausgegeben", "Die Karten wurden ausgegeben.")
-
-  def stampCards(self):
-    cards = JacqCard.readCards(self.project.path)
-    dialog = StampDialog(self, cards)
-    dialog.exec()
-
-  def renderTexture(self):
-    self.project.renderTexture()
-
-  def buildProgram(self):
-    self.project.buildProgram()
-    self.showMessage("Patrone erstellt", "Die Patrone wurde erstellt.")
-
-  def renderProgram(self):
-    self.project.renderProgram()
-    self.showMessage("Patrone ausgeben", "Die Patrone wurde ausgegeben.")
-
   def editScan(self, scan):
     
-    dialog = QtWidgets.QDialog(self)
+    dialog = QDialog(self)
     layout = QGridLayout()
 
     filename = QPushButton(scan["filename"])
@@ -269,19 +209,19 @@ class MainWindow(QtWidgets.QMainWindow):
         filename.setText(scan["filename"])
 
     def tl_pressed():
-      scan["point_tl"] = JacqScan.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
+      scan["point_tl"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_tl.setText(str(scan["point_tl"]))
 
     def tr_pressed():
-      scan["point_tr"] = JacqScan.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
+      scan["point_tr"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_tr.setText(str(scan["point_tr"]))
 
     def bl_pressed():
-      scan["point_bl"] = JacqScan.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
+      scan["point_bl"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_bl.setText(str(scan["point_bl"]))
 
     def br_pressed():
-      scan["point_br"] = JacqScan.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
+      scan["point_br"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_br.setText(str(scan["point_br"]))
 
     filename.pressed.connect(fn_pressed)  
@@ -292,8 +232,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     dialog.exec()
 
-  def selectScanPoint(self, filename):
-    dialog = QtWidgets.QDialog(self)
+  def selectScanPoint_new(self, filename):
+    dialog = QDialog(self)
     layout = QStackedLayout(dialog)
 
     selector = PointSelector(None, filename)
@@ -303,30 +243,62 @@ class MainWindow(QtWidgets.QMainWindow):
 
     return selector.scene.x, selector.scene.y
 
-
-#############################################################################
-config = {
-  "last_project": None
-}
-
-def loadAppConfig():
-  global config
-
-  if os.path.exists("JacqSuite.config"):
-    with open("JacqSuite.config", "r") as file:
-      config = json.load(file)
-  else:
-    saveAppConfig()
-  
-def saveAppConfig():
-  with open("JacqSuite.config", "w") as file:
-    json.dump(config, file, indent=2)
+  ###################################################################
+  def selectScanPoint(self, pathname):
+    stage = 0
+    xs = 0
+    ys = 0
+    xmin = 0
+    xmax = 0
+    ymin = 0
+    ymax = 0
 
 
-if __name__ == '__main__':
-  loadAppConfig()
-  app = QtWidgets.QApplication(sys.argv)
-  win = MainWindow()
-  win.showMaximized()
-  app.exec()
-  saveAppConfig()
+    def mouse_event(event,x,y,flags,param):
+      nonlocal stage, xs, ys, xmin, xmax, ymin, ymax
+
+      if event == cv.EVENT_LBUTTONUP:
+        if stage == 0:
+          xs = 4*x
+          ys = 4*y
+          stage = 1
+          update_view()
+
+        elif stage == 1:
+          xs = xmin+int(x/4)
+          ys = ymin+int(y/4)
+          stage = 2
+
+    def update_view():
+      nonlocal stage, xs, ys, xmin, xmax, ymin, ymax
+
+      if stage == 0:
+        scan = cv.imread(pathname)
+        h, w, c = np.shape(scan)
+        scan = cv.resize(scan, (int(w/4), int(h/4)))
+
+      elif stage == 1:
+        scan = cv.imread(pathname)
+        h, w, c = np.shape(scan)
+
+        xmin = xs-100 if xs-100 >= 0 else 0
+        xmax = xs+100 if xs+100 < w else w
+        ymin = ys-100 if ys-100 >= 0 else 0
+        ymax = ys+100 if ys+100 < h else h
+
+        scan = scan[ymin:ymax,xmin:xmax]
+        scan = cv.resize(scan, (4*(xmax-xmin), 4*(ymax-ymin)))
+
+      cv.imshow("scan", scan)
+
+    cv.namedWindow('scan')
+    cv.setMouseCallback('scan', mouse_event)
+
+    update_view()
+
+    while stage < 2:
+      cv.waitKey(20)
+
+    cv.destroyAllWindows()
+
+    return [xs, ys]

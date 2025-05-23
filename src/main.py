@@ -1,7 +1,7 @@
 import sys, os, json
-from PySide6.QtWidgets import QLineEdit, QPushButton, QApplication, QLabel, QFormLayout, QComboBox, QDialog, QFileDialog, QToolBar, QMainWindow, QMessageBox, QWidget, QSizePolicy
+from PySide6.QtWidgets import QLineEdit, QPushButton, QApplication, QLabel, QFormLayout, QComboBox, QDialog, QFileDialog, QToolBar, QMainWindow, QMessageBox, QWidget, QSizePolicy, QGraphicsView, QGraphicsScene
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction, QIcon, QPixmap
+from PySide6.QtGui import QAction, QIcon, QPixmap, QBrush, QPen, QColor
 
 import scan, stamp
 from project import Project
@@ -11,7 +11,7 @@ class MainWindow(QMainWindow):
   def __init__(self, parent=None):
       super(MainWindow, self).__init__(parent)
 
-      self.resize(1100,400)
+      self.resize(1100,600)
       self.setWindowTitle("JacqSuite")
       self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
 
@@ -69,7 +69,16 @@ class MainWindow(QMainWindow):
       toolbar.addAction(exit_action)
 
       self.image = QLabel()
-      self.setCentralWidget(self.image)
+
+      self.scene = QGraphicsScene()
+      self.pixmap = self.scene.addPixmap(QPixmap())
+      
+      self.view = QGraphicsView()
+      self.view.setBackgroundBrush(QBrush("#DFD5C2"))
+      self.view.setScene(self.scene)
+
+
+      self.setCentralWidget(self.view)
 
       self.loadConfig()
       if self.config["path"]:
@@ -87,7 +96,17 @@ class MainWindow(QMainWindow):
   def updateView(self):
     if self.project:
       self.setWindowTitle("JacqSuite - " + self.project.path)
-      self.image.setPixmap(QPixmap(self.project.path + "/design_full.png"))
+
+      dx = self.project.config["design"]["dx"]
+      dy = self.project.config["design"]["dy"]
+
+      pixmap = QPixmap(self.project.path + "/design.png")
+      w = pixmap.width()
+      h = pixmap.height()
+      f =  400/h/dx
+      pixmap = pixmap.scaled(int(f*w*dy), int(f*h*dx))
+      self.pixmap.setPixmap(pixmap)
+      self.view.centerOn(pixmap.width()/2, pixmap.height()/2)
 
   # Greets the user
   def newProject(self):

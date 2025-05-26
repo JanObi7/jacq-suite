@@ -6,7 +6,7 @@ import os
 
 from PySide6.QtCore import Qt, QSize, QPoint
 from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush, QIcon, QAction
-from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox, QToolBar, QMainWindow, QDialog, QSizePolicy
+from PySide6.QtWidgets import QFileDialog, QTabWidget, QGridLayout, QLineEdit, QPushButton, QFormLayout, QComboBox, QToolBar, QMainWindow, QDialog, QSizePolicy, QSlider, QSpinBox
 from PySide6.QtWidgets import QVBoxLayout, QListWidget, QLabel, QWidget, QHBoxLayout, QMessageBox, QStackedLayout
 from views import PatternView, PointSelector
 
@@ -22,6 +22,9 @@ class MainWindow(QMainWindow):
     scans_action = QAction(QIcon('./src/assets/scans.png'), 'Scans konfigurieren', self)
     scans_action.triggered.connect(self.editScans)
 
+    bright_action = QAction(QIcon('./src/assets/brightness.png'), 'Erkennung anpassen', self)
+    bright_action.triggered.connect(self.editBrightness)
+
     close_action = QAction(QIcon('./src/assets/close.png'), 'Bearbeitung beenden', self)
     close_action.triggered.connect(self.close)
 
@@ -33,7 +36,9 @@ class MainWindow(QMainWindow):
     spacer = QWidget()
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
+
     toolbar.addAction(scans_action)
+    toolbar.addAction(bright_action)
     toolbar.addWidget(spacer)
     toolbar.addAction(close_action)
 
@@ -242,6 +247,33 @@ class MainWindow(QMainWindow):
     dialog.exec()
 
     return selector.scene.x, selector.scene.y
+
+  def editBrightness(self):
+    dialog = QDialog(self)
+    dialog.setMinimumWidth(200)
+    layout = QFormLayout()
+
+    limit = QSpinBox()
+    limit.setMinimum(120)
+    limit.setMaximum(240)
+    limit.setValue(self.editor.scene.limit)
+    limit.setSingleStep(5)
+
+    def save():
+      self.editor.scene.limit = limit.value()
+      print(self.editor.scene.limit)
+      dialog.close()
+
+    ok = QPushButton("speichern")
+    ok.pressed.connect(save)
+
+    layout.addRow("Helligkeitsschwelle:", limit)
+    layout.addWidget(ok)
+
+    dialog.setLayout(layout)
+    dialog.setWindowTitle("Erkennung anpassen")
+
+    dialog.exec()
 
   ###################################################################
   def selectScanPoint(self, pathname):

@@ -61,6 +61,8 @@ class PatternScene(QGraphicsScene):
         self.s2 = 1
         self.selecting = False
 
+        self.limit = 180
+
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self.selecting = True
@@ -127,7 +129,7 @@ class PatternScene(QGraphicsScene):
         # print(key)
 
         if key == Qt.Key.Key_Space:
-            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, 180)
+            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, self.limit)
             self.updatePattern()
 
         if key == Qt.Key.Key_1:
@@ -212,7 +214,7 @@ class PatternScene(QGraphicsScene):
           target[y,x] = color
 
       return target
-
+    
     @Slot()
     def updatePattern(self):
         img = self.project.getDesign(self.scanMode, self.k1, self.k2, self.s1, self.s2)
@@ -254,7 +256,7 @@ class PatternView(QGraphicsView):
                 self.scale(0.8,0.8)
 
         return super().wheelEvent(event)
-
+    
 class PointSelectorScene(QGraphicsScene):
     def __init__(self, parent, filename):
         super().__init__(parent)

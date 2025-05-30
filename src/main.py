@@ -6,6 +6,43 @@ from PySide6.QtGui import QAction, QIcon, QPixmap, QBrush, QPen, QColor
 import scan, stamp
 from project import Project
 
+class ImageLabel(QLabel):
+
+  def __init__(self, parent=None):
+    super(ImageLabel, self).__init__(parent)
+    self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    self.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
+    self.image = None
+
+  def loadImage(self, filename, dx, dy):
+    self.image = QPixmap(filename)
+    self.dx = dx
+    self.dy = dy
+    self.showImage()
+
+  def showImage(self):
+    if self.image:
+      wi = self.image.width()*self.dy
+      hi = self.image.height()*self.dx
+
+      wv = self.width()-100
+      hv = self.height()-100
+
+      if wi/hi >= wv/hv:
+        w = wv
+        h = hi*wv/wi
+      else:
+        w = wi*hv/hi
+        h = hv
+
+      self.setPixmap(self.image.scaled(w,h,Qt.AspectRatioMode.IgnoreAspectRatio))
+
+  def resizeEvent(self, event):
+    self.showImage()
+    return super().resizeEvent(event)
+  
+
+
 class MainWindow(QMainWindow):
 
   def __init__(self, parent=None):
@@ -68,17 +105,8 @@ class MainWindow(QMainWindow):
       toolbar.addWidget(spacer)
       toolbar.addAction(exit_action)
 
-      self.image = QLabel()
-
-      self.scene = QGraphicsScene()
-      self.pixmap = self.scene.addPixmap(QPixmap())
-      
-      self.view = QGraphicsView()
-      self.view.setBackgroundBrush(QBrush("#DFD5C2"))
-      self.view.setScene(self.scene)
-
-
-      self.setCentralWidget(self.view)
+      self.image = ImageLabel()
+      self.setCentralWidget(self.image)
 
       self.loadConfig()
       if self.config["path"]:
@@ -97,16 +125,8 @@ class MainWindow(QMainWindow):
     if self.project:
       self.setWindowTitle("JacqSuite - " + self.project.path)
 
-      dx = self.project.config["design"]["dx"]
-      dy = self.project.config["design"]["dy"]
+      self.image.loadImage(self.project.path + "/design.png", self.project.config["design"]["dx"], self.project.config["design"]["dy"])
 
-      pixmap = QPixmap(self.project.path + "/design.png")
-      w = pixmap.width()
-      h = pixmap.height()
-      f =  400/h/dx
-      pixmap = pixmap.scaled(int(f*w*dy), int(f*h*dx))
-      self.pixmap.setPixmap(pixmap)
-      self.view.centerOn(pixmap.width()/2, pixmap.height()/2)
 
   # Greets the user
   def newProject(self):

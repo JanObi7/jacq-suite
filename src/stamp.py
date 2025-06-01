@@ -1,5 +1,5 @@
 from PySide6.QtCore import QSize, QPoint, Qt
-from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush, QPen, QKeyEvent, QIcon, QAction
+from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush, QPen, QKeyEvent, QIcon, QAction, QFont
 from PySide6.QtWidgets import QMainWindow, QWidget, QSizePolicy, QToolBar
 
 from tinkerforge.ip_connection import IPConnection
@@ -190,37 +190,16 @@ class Hardware:
 
 
 #############################################################################
-class CardStamper(QMainWindow):
+class CardView(QWidget):
   def __init__(self, cards):
     super().__init__()
 
-    self.setWindowTitle("JacqSuite")
-    self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
+    self.cards = cards
 
-    reset_action = QAction(QIcon('./src/assets/reset.png'), 'Hardware zurücksetzen', self)
-    reset_action.triggered.connect(self.reset)
+    self.grabKeyboard()
 
-    calibrate_action = QAction(QIcon('./src/assets/calibrate.png'), 'Hardware kalibrieren', self)
-    calibrate_action.triggered.connect(self.calibrate)
-
-    close_action = QAction(QIcon('./src/assets/close.png'), 'Stanzen beenden', self)
-    close_action.triggered.connect(self.close)
-
-    self.setWindowTitle("Karten stanzen")
-    self.resize(1260,600)
-
-    spacer = QWidget()
-    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-    toolbar = QToolBar('Main ToolBar')
-    toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-    toolbar.setIconSize(QSize(64, 64))
-    self.addToolBar(toolbar)
-
-    toolbar.addAction(calibrate_action)
-    toolbar.addAction(reset_action)
-    toolbar.addWidget(spacer)
-    toolbar.addAction(close_action)
+    self.font = QFont()
+    self.font.setPixelSize(30)
 
     self.last_voltage = 5000
     self.switch_voltage = 1100
@@ -228,19 +207,17 @@ class CardStamper(QMainWindow):
     self.min_voltage = 250
     self.hardware = Hardware(self.hardwareAiEvent)
 
-    self.cards = cards
     self.selectCard(0)
 
   def closeEvent(self, event: QCloseEvent):
     del self.hardware
 
-  def calibrate(self):
-    self.hardware.calibrate()
-    self.setColumn(0)
+  def hardwareAiEvent(self, voltage):
+    if self.last_voltage < self.switch_voltage and voltage >= self.switch_voltage:
+      print("voltage", voltage)
+      self.setColumn(self.column + 1)
 
-  def reset(self):
-    self.hardware.reset()
-    self.setColumn(0)
+    self.last_voltage = voltage
 
   def selectCard(self, idx):
     self.idx = idx
@@ -250,26 +227,16 @@ class CardStamper(QMainWindow):
 
     self.setColumn(0)
 
-  def sizeHint(self):
-    return QSize(1260,340)
-  
   def setColumn(self, column):
-    if (column >= 0 and column <= 60):
+    if column >= 0 and column <= 60:
       self.column = column
-      self.repaint()
-    
+      self.update()
+
       for i in range(16):
         if self.card["data"][self.column][i] == 1:
           self.hardware.press(i)
         else:
           self.hardware.release(i)
-
-  def hardwareAiEvent(self, voltage):
-    if self.last_voltage < self.switch_voltage and voltage >= self.switch_voltage:
-      print("voltage", voltage)
-      self.setColumn(self.column + 1)
-
-    self.last_voltage = voltage
 
   def keyReleaseEvent(self, event: QKeyEvent):
     key = event.key()
@@ -279,7 +246,7 @@ class CardStamper(QMainWindow):
  
     if key == Qt.Key.Key_Space:
       self.setColumn(self.column + 1)
- 
+  
     if key == Qt.Key.Key_Up:
       self.selectCard(self.idx+1)
 
@@ -297,7 +264,7 @@ class CardStamper(QMainWindow):
 
     if key == Qt.Key.Key_Left:
       self.selectCard(self.idx-int(len(self.cards)/2))
- 
+
   def mouseReleaseEvent(self, event):
     x0 = int(self.width()/2)-630
 
@@ -305,31 +272,92 @@ class CardStamper(QMainWindow):
     self.setColumn(idx)
  
   def paintEvent(self, event: QPaintEvent):
-    x0 = int(self.width()/2)-630
-    y0 = int(self.height()/2)-170
+    if self.card:
+      x0 = int(self.width()/2)-630
+      y0 = int(self.height()/2)-170
 
-    painter = QPainter(self)
-    painter.fillRect(x0,y0,1260,340,QColor("gray"))
+      painter = QPainter(self)
+      painter.setFont(self.font)
 
-    painter.setBrush(QColor("black"))
+      painter.fillRect(x0,y0,1260,340,QColor("gray"))
+      painter.setBrush(QColor("black"))
 
-    # set binding holes
-    for x in [50,50+580,50+580+580]:
-      for y in [50, 110, 230, 290]:
-        painter.drawEllipse(QPoint(x0+x, y0+y), 7, 7)
+      # set binding holes
+      for x in [50,50+580,50+580+580]:
+        for y in [50, 110, 230, 290]:
+          painter.drawEllipse(QPoint(x0+x, y0+y), 7, 7)
 
-    # set fixing holes
-    for x in [50+30,50+580-30,50+580+30,50+580+580-30]:
-      painter.drawEllipse(QPoint(x0+x, y0+170), 15, 15)
+      # set fixing holes
+      for x in [50+30,50+580-30,50+580+30,50+580+580-30]:
+        painter.drawEllipse(QPoint(x0+x, y0+170), 15, 15)
 
-    # set data holes
-    for c in range(60):
-      for r in range(16):
-        if self.card["data"][c][r] == 1:
-          painter.drawEllipse(QPoint(x0+30+20*c, y0+20+20*r), 7, 7)
+      # set data holes
+      for c in range(60):
+        for r in range(16):
+          if self.card["data"][c][r] == 1:
+            painter.drawEllipse(QPoint(x0+30+20*c, y0+20+20*r), 7, 7)
 
-    # draw selection
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor(255,0,0,100))
-    painter.drawRect(x0+20+20*self.column, y0+0, 21, 340)
+      # draw card number
+      painter.drawText(x0+600,y0-20,self.card["name"])
 
+      # draw selection
+      painter.setPen(Qt.PenStyle.NoPen)
+      painter.setBrush(QColor(255,0,0,100))
+      painter.drawRect(x0+20+20*self.column, y0+0, 21, 340)
+
+      painter.end()
+
+#############################################################################
+class CardStamper(QMainWindow):
+  def __init__(self, cards):
+    super().__init__()
+
+    self.setWindowTitle("JacqSuite")
+    self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
+
+    test_action = QAction(QIcon('./src/assets/test.png'), 'Hardware testen', self)
+    test_action.triggered.connect(self.test)
+
+    reset_action = QAction(QIcon('./src/assets/reset.png'), 'Hardware zurücksetzen', self)
+    reset_action.triggered.connect(self.reset)
+
+    calib_action = QAction(QIcon('./src/assets/calibrate.png'), 'Hardware kalibrieren', self)
+    calib_action.triggered.connect(self.calibrate)
+
+    close_action = QAction(QIcon('./src/assets/close.png'), 'Stanzen beenden', self)
+    close_action.triggered.connect(self.close)
+
+    self.setWindowTitle("Karten stanzen")
+    self.resize(1300,600)
+
+    spacer = QWidget()
+    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    toolbar = QToolBar('Main ToolBar')
+    toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+    toolbar.setIconSize(QSize(64, 64))
+    self.addToolBar(toolbar)
+
+    toolbar.addAction(test_action)
+    toolbar.addAction(calib_action)
+    toolbar.addAction(reset_action)
+    toolbar.addWidget(spacer)
+    toolbar.addAction(close_action)
+
+    self.view = CardView(cards)
+    self.setCentralWidget(self.view)
+
+  def closeEvent(self, event: QCloseEvent):
+    self.view.close()
+
+  def calibrate(self):
+    self.view.hardware.calibrate()
+    self.view.setColumn(0)
+
+  def reset(self):
+    self.view.hardware.reset()
+    self.view.setColumn(0)
+
+  def test(self):
+    self.view.hardware.reset()
+    self.view.setColumn(0)

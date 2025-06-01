@@ -1,10 +1,11 @@
 import sys, os, json
 from PySide6.QtWidgets import QLineEdit, QPushButton, QApplication, QLabel, QFormLayout, QComboBox, QDialog, QFileDialog, QToolBar, QMainWindow, QMessageBox, QWidget, QSizePolicy, QGraphicsView, QGraphicsScene
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction, QIcon, QPixmap, QBrush, QPen, QColor
+from PySide6.QtGui import QAction, QIcon, QPixmap, QBrush, QPen, QColor, QPainter
 
 import scan, stamp
 from project import Project
+from settings import readSetting, writeSetting
 
 class ImageLabel(QLabel):
 
@@ -15,9 +16,11 @@ class ImageLabel(QLabel):
     self.image = None
 
   def loadImage(self, filename, dx, dy):
-    self.image = QPixmap(filename)
     self.dx = dx
     self.dy = dy
+
+    self.image = QPixmap(filename)
+
     self.showImage()
 
   def showImage(self):
@@ -35,7 +38,12 @@ class ImageLabel(QLabel):
         w = wi*hv/hi
         h = hv
 
-      self.setPixmap(self.image.scaled(w,h,Qt.AspectRatioMode.IgnoreAspectRatio))
+      self.image1 = self.image.scaled(w,h,Qt.AspectRatioMode.IgnoreAspectRatio)
+
+      painter = QPainter(self.image1)
+      painter.drawRect(0,0,w-1,h-1)
+
+      self.setPixmap(self.image1)
 
   def resizeEvent(self, event):
     self.showImage()
@@ -108,9 +116,9 @@ class MainWindow(QMainWindow):
       self.image = ImageLabel()
       self.setCentralWidget(self.image)
 
-      self.loadConfig()
-      if self.config["path"]:
-        self.project = Project(self.config["path"])
+      path = readSetting("path")
+      if path:
+        self.project = Project(path)
         self.updateView()
       else:
         self.openProject()
@@ -132,8 +140,7 @@ class MainWindow(QMainWindow):
   def newProject(self):
     path = QFileDialog.getExistingDirectory(self, "Leeren Ordner auswählen", ".", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
     if path:
-      self.config["path"] = path
-      self.saveConfig()
+      writeSetting("path", path)
       self.project = Project(path)
       self.configPattern()
       self.updateView()
@@ -141,8 +148,7 @@ class MainWindow(QMainWindow):
   def openProject(self):
     path = QFileDialog.getExistingDirectory(self, "Ordner auswählen", "./data", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
     if path:
-      self.config["path"] = path
-      self.saveConfig()
+      writeSetting("path", path)
       self.project = Project(path)
       self.updateView()
 
@@ -245,21 +251,6 @@ class MainWindow(QMainWindow):
     cards = self.project.readCards()
     self.win = stamp.CardStamper(cards)
     self.win.show()
-
-  def loadConfig(self):
-    if os.path.exists("config.json"):
-      with open("config.json", "r") as file:
-        self.config = json.load(file)
-    else:
-      self.config = {
-        "path": None
-      }
-      self.saveConfig()
-    
-  def saveConfig(self):
-    with open("config.json", "w") as file:
-      json.dump(self.config, file, indent=2)
-
 
 if __name__ == '__main__':
   app = QApplication(sys.argv)

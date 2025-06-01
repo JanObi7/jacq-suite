@@ -57,7 +57,8 @@ def buildCards(path):
   ns, nk, _ = np.shape(pattern)
 
   # generate cards
-  cards = []
+  cardsA = []
+  cardsB = []
 
   for s in range(ns):
     # Leistensteuerung
@@ -72,11 +73,11 @@ def buildCards(path):
       dotsB.append(1 if tuple(pattern[ns-s-1,880+k].tolist()) == (255,0,0,255) else 0)
 
     # build and append A and B cards
-    cards.append(createCard(f"A{(s+1):03d}", "880", dotsA, ctrl))
-    cards.append(createCard(f"B{(s+1):03d}", "880", dotsB, ctrl))
+    cardsA.append(createCard(f"A{(s+1):03d}", "880", dotsA, ctrl))
+    cardsB.append(createCard(f"B{(s+1):03d}", "880", dotsB, ctrl))
 
   # write cards
-  writeCards(path, cards)
+  writeCards(path, cardsA+cardsB)
 
 def renderCards(path):
   # read cards

@@ -1,6 +1,6 @@
 from PySide6.QtCore import QSize, QPoint, Qt
 from PySide6.QtGui import QCloseEvent, QPaintEvent, QPainter, QColor, QBrush, QPen, QKeyEvent, QIcon, QAction, QFont
-from PySide6.QtWidgets import QMainWindow, QWidget, QSizePolicy, QToolBar
+from PySide6.QtWidgets import QMainWindow, QWidget, QSizePolicy, QToolBar, QMessageBox
 
 from tinkerforge.ip_connection import IPConnection
 from tinkerforge.bricklet_servo_v2 import BrickletServoV2
@@ -22,11 +22,8 @@ class Hardware:
   def __init__(self, callback):
     try:
       # read/init settings
-      self.dmin = readSetting("dmin")
-      self.dmax = readSetting("dmax")
-
-      if not self.dmin: self.dmin = [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80]
-      if not self.dmax: self.dmax = [180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180]
+      self.dmin = readSetting("dmin", [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80])
+      self.dmax = readSetting("dmax", [180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180])
 
       # init tinkerforge
       self.ipcon = IPConnection() # Create IP connection
@@ -63,7 +60,13 @@ class Hardware:
         s.set_enable(p, True)    
 
       # configure ao
-      self.ai.register_callback(self.ai.CALLBACK_VOLTAGE, callback)
+      self.calibration = False
+      self.callback = callback
+      self.voltage = 5000
+      self.voltage_switch = readSetting("voltage_switch", 1100)
+      self.voltage_max = readSetting("voltage_max", 1250)
+      self.voltage_min = readSetting("voltage_min", 250)
+      self.ai.register_callback(self.ai.CALLBACK_VOLTAGE, self.voltageEvent)
       self.ai.set_voltage_callback_configuration(10, True, 'x', 0, 5)
 
       print("hardware initialized")
@@ -94,6 +97,21 @@ class Hardware:
       print("hardware deinitialized")
     except:
       print("hardware not deinitialized")
+
+  def voltageEvent(self, voltage):
+    if self.calibration:
+      if voltage < self.voltage_min:
+        self.voltage_min = voltage
+      if voltage > self.voltage_max:
+        self.voltage_max = voltage
+        self.voltage_switch = voltage-150
+    else:
+      if self.voltage < self.voltage_switch and voltage >= self.voltage_switch:
+        print("voltage", voltage)
+        self.callback()
+
+    self.voltage = voltage
+
 
   def releaseAll(self):
     if self.ready:
@@ -144,6 +162,14 @@ class Hardware:
       writeSetting("dmin", self.dmin)
       writeSetting("dmax", self.dmax)
 
+      self.voltage_min = 250
+      self.voltage_max = 1250
+      self.voltage_switch = 1100
+
+      writeSetting("voltage_min", self.voltage_min)
+      writeSetting("voltage_max", self.voltage_max)
+      writeSetting("voltage_switch", self.voltage_switch)
+
       self.releaseAll()
       time.sleep(1)
 
@@ -188,6 +214,33 @@ class Hardware:
       self.releaseAll()
       time.sleep(1)
 
+  def calibratePoti(self):
+    if self.ready:
+      self.calibration = True
+      self.voltage_max = 0
+      self.voltage_min = 5000
+
+      self.liftAll()
+      time.sleep(10)
+
+      self.calibration = False
+
+      print(self.voltage_min, self.voltage_max)
+
+      writeSetting("voltage_min", self.voltage_min)
+      writeSetting("voltage_max", self.voltage_max)
+      writeSetting("voltage_switch", self.voltage_switch)
+
+
+  def test(self):
+    if self.ready:
+      self.releaseAll()
+      time.sleep(1)
+      self.pressAll()
+      time.sleep(1)
+      self.liftAll()
+      time.sleep(1)
+
 
 #############################################################################
 class CardView(QWidget):
@@ -201,27 +254,19 @@ class CardView(QWidget):
     self.font = QFont()
     self.font.setPixelSize(30)
 
-    self.last_voltage = 5000
-    self.switch_voltage = 1100
-    self.max_voltage = 1250
-    self.min_voltage = 250
-    self.hardware = Hardware(self.hardwareAiEvent)
+    self.hardware = Hardware(self.switchEvent)
 
     self.selectCard(0)
 
   def closeEvent(self, event: QCloseEvent):
     del self.hardware
 
-  def hardwareAiEvent(self, voltage):
-    if self.last_voltage < self.switch_voltage and voltage >= self.switch_voltage:
-      print("voltage", voltage)
-      self.setColumn(self.column + 1)
-
-    self.last_voltage = voltage
+  def switchEvent(self):
+    self.setColumn(self.column + 1)
 
   def selectCard(self, idx):
-    self.idx = idx
-    self.card = self.cards[idx]
+    self.idx = idx % len(self.cards)
+    self.card = self.cards[self.idx]
 
     self.setWindowTitle("Karten stanzen - " + self.card["name"])
 
@@ -321,8 +366,11 @@ class CardStamper(QMainWindow):
     reset_action = QAction(QIcon('./src/assets/reset.png'), 'Hardware zurücksetzen', self)
     reset_action.triggered.connect(self.reset)
 
-    calib_action = QAction(QIcon('./src/assets/calibrate.png'), 'Hardware kalibrieren', self)
-    calib_action.triggered.connect(self.calibrate)
+    servo_action = QAction(QIcon('./src/assets/servo.png'), 'Servos kalibrieren', self)
+    servo_action.triggered.connect(self.calibrate)
+
+    poti_action = QAction(QIcon('./src/assets/poti.png'), 'Poti kalibrieren', self)
+    poti_action.triggered.connect(self.calibratePoti)
 
     close_action = QAction(QIcon('./src/assets/close.png'), 'Stanzen beenden', self)
     close_action.triggered.connect(self.close)
@@ -339,7 +387,8 @@ class CardStamper(QMainWindow):
     self.addToolBar(toolbar)
 
     toolbar.addAction(test_action)
-    toolbar.addAction(calib_action)
+    toolbar.addAction(servo_action)
+    toolbar.addAction(poti_action)
     toolbar.addAction(reset_action)
     toolbar.addWidget(spacer)
     toolbar.addAction(close_action)
@@ -347,17 +396,31 @@ class CardStamper(QMainWindow):
     self.view = CardView(cards)
     self.setCentralWidget(self.view)
 
+  def showMessage(self, title, text):
+    msgBox = QMessageBox(self)
+    msgBox.setWindowTitle(title)
+    msgBox.setText(text)
+    msgBox.exec()
+
   def closeEvent(self, event: QCloseEvent):
     self.view.close()
 
   def calibrate(self):
     self.view.hardware.calibrate()
     self.view.setColumn(0)
+    self.showMessage("Servos kalibrieren", "Die Kalibrierung der Servomotoren ist abgeschlossen.")
+
+  def calibratePoti(self):
+    self.view.hardware.calibratePoti()
+    self.view.setColumn(0)
+    self.showMessage("Poti kalibrieren", "Die Kalibrierung des Potentiometers ist abgeschlossen.")
 
   def reset(self):
     self.view.hardware.reset()
     self.view.setColumn(0)
+    self.showMessage("Hardware zurücksetzen", "Die Hardware wurde auf Standardeinstellungen zurückgesetzt.")
 
   def test(self):
-    self.view.hardware.reset()
+    self.view.hardware.test()
     self.view.setColumn(0)
+    self.showMessage("Hardware testen", "Der Test der Hardware ist abgeschlossen.")

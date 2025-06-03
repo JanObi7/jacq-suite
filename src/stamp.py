@@ -80,7 +80,7 @@ class Hardware:
       print(e)
       print("hardware not initialized")
 
-  def __del__(self):
+  def close(self):
     self.liftAll()
 
     # disable servos
@@ -259,7 +259,7 @@ class CardView(QWidget):
     self.selectCard(0)
 
   def closeEvent(self, event: QCloseEvent):
-    del self.hardware
+    self.hardware.close()
 
   def switchEvent(self):
     self.setColumn(self.column + 1)

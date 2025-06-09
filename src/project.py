@@ -416,3 +416,12 @@ class Project:
     with open(self.path+"/cards.json", 'w') as jsonfile:
       json.dump(cards, jsonfile)
 
+  def readStamps(self):
+    with open(self.path+"/stamps.json", 'r') as jsonfile:
+      stamps = json.load(jsonfile)
+    return stamps
+
+  def writeStamps(self, stamps):
+    with open(self.path+"/stamps.json", 'w') as jsonfile:
+      json.dump(stamps, jsonfile)
+

@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 import json
+from math import pow, sqrt, atan2, sin, cos
 
 def readCards(path):
   with open(path+"/cards.json", 'r') as jsonfile:
@@ -113,9 +114,192 @@ def renderCards(path):
     # save image
     cv.imwrite(path+f"/cards/{card["name"]}.png", image)
 
+def readStamps(path):
+  with open(path+"/stamps.json", 'r') as jsonfile:
+    return json.load(jsonfile)
+
+def writeStamps(path, cards):
+  with open(path+"/stamps.json", 'w') as jsonfile:
+    json.dump(cards, jsonfile)
+
+
+def scanStamp(path, name):
+  card = None
+  warp = None
+
+  width = 5 * 254
+  height = 5 * 70
+
+  cam = cv.VideoCapture(0, cv.CAP_DSHOW)
+  cam.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
+  cam.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
+
+  while True:
+    _, image = cam.read()
+
+    # try to find card contour
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    _, thresh = cv.threshold(gray, 125, 255, cv.THRESH_BINARY)
+    contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+    # look for card corners
+    sources = None
+    for cnt in contours:
+      (xc, yc), radius = cv.minEnclosingCircle(cnt)
+      if radius > 400 and radius < 500:
+        sources = cv.approxPolyDP(cnt, 10, True)
+        break
+
+    if sources is not None and len(sources) == 4:
+      targets = []
+      for pnt in sources:
+        x, y = pnt[0]
+        if x > xc and y > yc:
+          targets.append([width, height])
+        elif x < xc and y > yc:
+          targets.append([0, height])
+        elif x > xc and y < yc:
+          targets.append([width, 0])
+        else:
+          targets.append([0,0])
+
+      matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
+      warp = cv.warpPerspective(image, matrix, (width, height))
+
+      # find holes in transformed image
+      image = warp.copy()
+      gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+      _, thresh = cv.threshold(gray, 125, 255, cv.THRESH_BINARY)
+      contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+      bholes = []
+      dholes = []
+      bhole_left = None
+      bhole_right = None
+      for cnt in contours:
+        (xc, yc), radius = cv.minEnclosingCircle(cnt)
+        if radius > 12 and radius < 18 and xc > 10 and xc < width-10:
+          bholes.append(cnt)
+          
+          if bhole_left is None:
+            bhole_left = cnt
+          else:
+            (xl, yl), rl = cv.minEnclosingCircle(bhole_left)
+            if xc < xl:
+              bhole_left = cnt
+          
+          if bhole_right is None:
+            bhole_right = cnt
+          else:
+            (xr, yr), rr = cv.minEnclosingCircle(bhole_right)
+            if xc > xr:
+              bhole_right = cnt
+
+        elif radius > 5 and radius < 10:
+          dholes.append(cnt)
+
+      # cv.drawContours(image, bholes, -1, (255,255,0), -1)
+      # cv.drawContours(image, dholes, -1, (255,0,0), -1)
+
+      if bhole_left is not None and bhole_right is not None:
+        (xl, yl), rl = cv.minEnclosingCircle(bhole_left)
+        (xr, yr), rr = cv.minEnclosingCircle(bhole_right)
+
+        # Abstand 220 mm
+        dist = sqrt(pow(xr-xl,2) + pow(yr-yl,2))
+        ppmm = dist / 220
+
+        x0 = (xr+xl)/2
+        y0 = (yr+yl)/2
+        a = atan2(yr-yl, xr-xl)
+
+        # draw raster points
+        data = []
+        for i in range(0,60):
+          row = []
+          for j in range(0,16):
+            dx = ppmm*(4*i-120)
+            dy = ppmm*(4*j-30)
+            x = x0 + dx*cos(a) - dy*sin(a)
+            y = y0 + dx*sin(a) + dy*cos(a)
+
+            match = False
+            for cnt in dholes:
+              if cv.pointPolygonTest(cnt, (x,y), False) >= 0:
+                match = True
+                break
+
+            if match: 
+              row.append(1) 
+              cv.circle(image, (int(x), int(y)), 3, (255,255,255), -1)
+            else:
+              row.append(0)
+              cv.circle(image, (int(x), int(y)), 3, (0,0,0), -1)
+
+          data.append(row)
+
+        # create card
+        card = {
+          "name": name,
+          "type": "880",
+          "data": data,
+        }
+      
+
+    cv.imshow("image", image)
+
+    k = cv.waitKey(1)
+
+    # Abbruch mit ESCAPE
+    if k == 27:
+      break
+  
+    # Okay mit RETURN
+    if k == 13:
+      if warp is not None:
+        cv.imwrite(path+f"/stamps/{name}.png", warp)
+
+      if card is not None:
+        stamps = [card]
+        for stamp in readStamps(path):
+          if stamp["name"] != name:
+            stamps.append(stamp)
+        writeStamps(path, stamps)
+
+      break
+
+  cv.destroyAllWindows()
+  cam.release()
+
+def compareCards(card1, card2):
+  passes = 0
+  errors = 0
+
+  for i in range(0,60):
+    for j in range(0,16):
+      if card1["data"][i][j] == card2["data"][i][j]:
+        passes += 1
+      else:
+        errors += 1
+        print(f"error at {i},{j}: data1 {card1["data"][i][j]}, data2 {card2["data"][i][j]}")
+
+  print("passes:", passes)
+  print("errors:", errors)
+  print(f"error rate: {errors/(errors+passes)*100} %")
 
 
 if __name__ == "__main__":
+  path = "c:/temp/jacq-suite/data/TH913_3523"
+  name = "A039"
 
-  buildCards("C:/temp/jacq-suite/data/TH913_3523")
-  renderCards("C:/temp/jacq-suite/data/TH913_3523")
+  scanStamp(path, name)
+
+  cards = readCards(path)
+  stamps = readStamps(path)
+
+  for card in cards:
+    if card["name"] == name: break
+  for stamp in stamps:
+    if stamp["name"] == name: break
+
+  compareCards(card, stamp)

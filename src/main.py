@@ -248,8 +248,7 @@ class MainWindow(QMainWindow):
     self.showMessage("Karten erstellt", "Die Karten wurden erstellt und ausgegeben.")
 
   def stampCards(self):
-    cards = self.project.readCards()
-    self.win = stamp.CardStamper(cards)
+    self.win = stamp.CardStamper(self.project)
     self.win.show()
 
 if __name__ == '__main__':

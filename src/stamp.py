@@ -201,9 +201,9 @@ class Hardware:
           status = s.get_status()
           current = status.current[p]
 
-          if current > 200:
-            self.dmin[i] = d
-            self.dmax[i] = min(d+60, 180)
+          if current > 300:
+            self.dmin[i] = d+10
+            self.dmax[i] = min(d+70, 180)
 
       print("dmin", self.dmin)
       print("dmax", self.dmax)

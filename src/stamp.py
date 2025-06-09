@@ -9,6 +9,7 @@ from tinkerforge.bricklet_analog_in_v3 import BrickletAnalogInV3
 import time, math, os
 
 from settings import readSetting, writeSetting
+from card import scanStamp
 
 #############################################################################
 class Hardware:
@@ -244,10 +245,12 @@ class Hardware:
 
 #############################################################################
 class CardView(QWidget):
-  def __init__(self, cards):
+  def __init__(self, project):
     super().__init__()
+    self.project = project
 
-    self.cards = cards
+    self.cards = self.project.readCards()
+    self.stamps = self.project.readStamps()
 
     self.grabKeyboard()
 
@@ -267,6 +270,12 @@ class CardView(QWidget):
   def selectCard(self, idx):
     self.idx = idx % len(self.cards)
     self.card = self.cards[self.idx]
+
+    self.stamp = None
+    for stamp in self.stamps:
+      if stamp["name"] == self.card["name"]:
+        self.stamp = stamp
+        break
 
     self.setWindowTitle("Karten stanzen - " + self.card["name"])
 
@@ -315,14 +324,44 @@ class CardView(QWidget):
 
     idx = math.floor((event.position().x()-20-x0)/20)
     self.setColumn(idx)
+
+  def scanStamp(self):
+    scanStamp(self.project.path, self.card["name"])
+
+    self.stamps = self.project.readStamps()
+
+    self.stamp = None
+    for stamp in self.stamps:
+      if stamp["name"] == self.card["name"]:
+        self.stamp = stamp
+        break
+
+    self.update()
+
+ 
+  def removeStamp(self):
+    self.stamps = []
+    for stamp in self.project.readStamps():
+      if stamp["name"] != self.card["name"]:
+        self.stamps.append(stamp)
+    self.project.writeStamps(self.stamps)
+    self.stamp = None
+    self.update()
  
   def paintEvent(self, event: QPaintEvent):
-    if self.card:
-      x0 = int(self.width()/2)-630
-      y0 = int(self.height()/2)-170
+    nobrush = Qt.BrushStyle.NoBrush
+    blackbrush = QBrush("black")
+    greenpen2 = QPen(QColor("green"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+    redpen2 = QPen(QColor("red"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+    nopen = QPen(Qt.PenStyle.NoPen)
 
-      painter = QPainter(self)
-      painter.setFont(self.font)
+    painter = QPainter(self)
+    painter.setFont(self.font)
+
+    x0 = int(self.width()/2)-630
+    y0 = int(self.height()/2)-370
+
+    if self.card:
 
       painter.fillRect(x0,y0,1260,340,QColor("gray"))
       painter.setBrush(QColor("black"))
@@ -350,12 +389,54 @@ class CardView(QWidget):
       painter.setBrush(QColor(255,0,0,100))
       painter.drawRect(x0+20+20*self.column, y0+0, 21, 340)
 
-      painter.end()
+    else:
+      painter.setPen("black")
+      painter.setBrush(Qt.BrushStyle.NoBrush)
+      painter.drawRect(x0,y0,1260,340)
+
+    x0 = int(self.width()/2)-630
+    y0 = int(self.height()/2)+30
+
+    if self.stamp:
+      painter.fillRect(x0,y0,1260,340,QColor("gray"))
+      painter.setBrush(QColor("black"))
+
+      # set binding holes
+      for x in [50,50+580,50+580+580]:
+        for y in [50, 110, 230, 290]:
+          painter.drawEllipse(QPoint(x0+x, y0+y), 7, 7)
+
+      # set fixing holes
+      for x in [50+30,50+580-30,50+580+30,50+580+580-30]:
+        painter.drawEllipse(QPoint(x0+x, y0+170), 15, 15)
+
+      # set data holes
+      for c in range(60):
+        for r in range(16):
+          if self.stamp["data"][c][r] == 1:
+            painter.setBrush(blackbrush)
+          else:
+            painter.setBrush(nobrush)
+
+          if self.stamp["data"][c][r] != self.card["data"][c][r]:
+            painter.setPen(redpen2)
+          else:
+            painter.setPen(greenpen2)
+
+          painter.drawEllipse(QPoint(x0+30+20*c, y0+20+20*r), 7, 7)
+
+    else:
+      painter.setPen("black")
+      painter.setBrush(Qt.BrushStyle.NoBrush)
+      painter.drawRect(x0,y0,1260,340)
+
+    painter.end()
 
 #############################################################################
 class CardStamper(QMainWindow):
-  def __init__(self, cards):
+  def __init__(self, project):
     super().__init__()
+    self.project = project
 
     self.setWindowTitle("JacqSuite")
     self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
@@ -372,11 +453,17 @@ class CardStamper(QMainWindow):
     poti_action = QAction(QIcon('./src/assets/poti.png'), 'Poti kalibrieren', self)
     poti_action.triggered.connect(self.calibratePoti)
 
+    scan_action = QAction(QIcon('./src/assets/webcam.png'), 'Karte scannen', self)
+    scan_action.triggered.connect(self.scan)
+
+    remove_action = QAction(QIcon('./src/assets/remove-card.png'), 'Scan löschen', self)
+    remove_action.triggered.connect(self.remove)
+
     close_action = QAction(QIcon('./src/assets/close.png'), 'Stanzen beenden', self)
     close_action.triggered.connect(self.close)
 
     self.setWindowTitle("Karten stanzen")
-    self.resize(1300,600)
+    self.resize(1300,1000)
 
     spacer = QWidget()
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -390,10 +477,13 @@ class CardStamper(QMainWindow):
     toolbar.addAction(servo_action)
     toolbar.addAction(poti_action)
     toolbar.addAction(reset_action)
+    toolbar.addSeparator()
+    toolbar.addAction(scan_action)
+    toolbar.addAction(remove_action)
     toolbar.addWidget(spacer)
     toolbar.addAction(close_action)
 
-    self.view = CardView(cards)
+    self.view = CardView(self.project)
     self.setCentralWidget(self.view)
 
   def showMessage(self, title, text):
@@ -424,3 +514,9 @@ class CardStamper(QMainWindow):
     self.view.hardware.test()
     self.view.setColumn(0)
     self.showMessage("Hardware testen", "Der Test der Hardware ist abgeschlossen.")
+
+  def scan(self):
+    self.view.scanStamp()
+
+  def remove(self):
+    self.view.removeStamp()

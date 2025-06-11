@@ -146,7 +146,7 @@ def scanStamp(path, name):
     sources = None
     for cnt in contours:
       (xc, yc), radius = cv.minEnclosingCircle(cnt)
-      if radius > 400 and radius < 500:
+      if radius > 350 and radius < 400:
         sources = cv.approxPolyDP(cnt, 10, True)
         break
 

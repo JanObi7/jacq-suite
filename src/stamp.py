@@ -456,7 +456,7 @@ class CardStamper(QMainWindow):
     scan_action = QAction(QIcon('./src/assets/webcam.png'), 'Karte scannen', self)
     scan_action.triggered.connect(self.scan)
 
-    remove_action = QAction(QIcon('./src/assets/remove-card.png'), 'Scan löschen', self)
+    remove_action = QAction(QIcon('./src/assets/remove-card.png'), 'Karte verwerfen', self)
     remove_action.triggered.connect(self.remove)
 
     close_action = QAction(QIcon('./src/assets/close.png'), 'Stanzen beenden', self)

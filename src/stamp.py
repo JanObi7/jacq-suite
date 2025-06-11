@@ -439,27 +439,27 @@ class CardStamper(QMainWindow):
     self.project = project
 
     self.setWindowTitle("JacqSuite")
-    self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
+    self.setWindowIcon(QIcon('./assets/JacqSuite.ico'))
 
-    test_action = QAction(QIcon('./src/assets/test.png'), 'Hardware testen', self)
+    test_action = QAction(QIcon('./assets/test.png'), 'Hardware testen', self)
     test_action.triggered.connect(self.test)
 
-    reset_action = QAction(QIcon('./src/assets/reset.png'), 'Hardware zurücksetzen', self)
+    reset_action = QAction(QIcon('./assets/reset.png'), 'Hardware zurücksetzen', self)
     reset_action.triggered.connect(self.reset)
 
-    servo_action = QAction(QIcon('./src/assets/servo.png'), 'Servos kalibrieren', self)
+    servo_action = QAction(QIcon('./assets/servo.png'), 'Servos kalibrieren', self)
     servo_action.triggered.connect(self.calibrate)
 
-    poti_action = QAction(QIcon('./src/assets/poti.png'), 'Poti kalibrieren', self)
+    poti_action = QAction(QIcon('./assets/poti.png'), 'Poti kalibrieren', self)
     poti_action.triggered.connect(self.calibratePoti)
 
-    scan_action = QAction(QIcon('./src/assets/webcam.png'), 'Karte scannen', self)
+    scan_action = QAction(QIcon('./assets/webcam.png'), 'Karte scannen', self)
     scan_action.triggered.connect(self.scan)
 
-    remove_action = QAction(QIcon('./src/assets/remove-card.png'), 'Karte verwerfen', self)
+    remove_action = QAction(QIcon('./assets/remove-card.png'), 'Karte verwerfen', self)
     remove_action.triggered.connect(self.remove)
 
-    close_action = QAction(QIcon('./src/assets/close.png'), 'Stanzen beenden', self)
+    close_action = QAction(QIcon('./assets/close.png'), 'Stanzen beenden', self)
     close_action.triggered.connect(self.close)
 
     self.setWindowTitle("Karten stanzen")

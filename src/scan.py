@@ -16,16 +16,16 @@ class MainWindow(QMainWindow):
   def __init__(self, project):
     super().__init__()
 
-    self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
+    self.setWindowIcon(QIcon('./assets/JacqSuite.ico'))
     self.setWindowTitle(f"JacqSuite")
 
-    scans_action = QAction(QIcon('./src/assets/scans.png'), 'Scans konfigurieren', self)
+    scans_action = QAction(QIcon('./assets/scans.png'), 'Scans konfigurieren', self)
     scans_action.triggered.connect(self.editScans)
 
-    bright_action = QAction(QIcon('./src/assets/brightness.png'), 'Erkennung anpassen', self)
+    bright_action = QAction(QIcon('./assets/brightness.png'), 'Erkennung anpassen', self)
     bright_action.triggered.connect(self.editBrightness)
 
-    close_action = QAction(QIcon('./src/assets/close.png'), 'Bearbeitung beenden', self)
+    close_action = QAction(QIcon('./assets/close.png'), 'Bearbeitung beenden', self)
     close_action.triggered.connect(self.close)
 
     toolbar = QToolBar('Main ToolBar')

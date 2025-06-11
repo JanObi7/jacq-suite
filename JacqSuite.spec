@@ -5,7 +5,9 @@ a = Analysis(
     ['src/main.py'],
     pathex=[],
     binaries=[],
-    datas=[('src/assets/JacqSuite.ico', '.')],
+    datas=[
+      ('assets/JacqSuite.ico', '.'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +37,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['src\\assets\\JacqSuite.ico'],
+    icon=['assets/JacqSuite.ico'],
 )

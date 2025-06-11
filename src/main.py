@@ -58,36 +58,36 @@ class MainWindow(QMainWindow):
 
       self.resize(1100,600)
       self.setWindowTitle("JacqSuite")
-      self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'assets', 'JacqSuite.ico')))
+      self.setWindowIcon(QIcon('./assets/JacqSuite.ico'))
 
-      new_action = QAction(QIcon('./src/assets/folder_new.png'), 'Muster erstellen', self)
+      new_action = QAction(QIcon('./assets/folder_new.png'), 'Muster erstellen', self)
       new_action.triggered.connect(self.newProject)
       
-      load_action = QAction(QIcon('./src/assets/open.png'), 'Muster laden', self)
+      load_action = QAction(QIcon('./assets/open.png'), 'Muster laden', self)
       load_action.triggered.connect(self.openProject)
       
-      edit_action = QAction(QIcon('./src/assets/edit.png'), 'Patrone erstellen', self)
+      edit_action = QAction(QIcon('./assets/edit.png'), 'Patrone erstellen', self)
       edit_action.triggered.connect(self.configPattern)
       
-      scan_action = QAction(QIcon('./src/assets/scanner.png'), 'Patrone digitalisieren', self)
+      scan_action = QAction(QIcon('./assets/scanner.png'), 'Patrone digitalisieren', self)
       scan_action.triggered.connect(self.scanPattern)
       
-      pattern_action = QAction(QIcon('./src/assets/printer.png'), 'Patrone ausgeben', self)
+      pattern_action = QAction(QIcon('./assets/printer.png'), 'Patrone ausgeben', self)
       pattern_action.triggered.connect(self.renderPattern)
       
-      config_action = QAction(QIcon('./src/assets/cogs.png'), 'Karten konfigurieren', self)
+      config_action = QAction(QIcon('./assets/cogs.png'), 'Karten konfigurieren', self)
       config_action.triggered.connect(self.configProgram)
       
-      card_action = QAction(QIcon('./src/assets/punch-card.png'), 'Karten erstellen', self)
+      card_action = QAction(QIcon('./assets/punch-card.png'), 'Karten erstellen', self)
       card_action.triggered.connect(self.generateCards)
       
-      exit_action = QAction(QIcon('./src/assets/exit-button.png'), 'Programm beenden', self)
+      exit_action = QAction(QIcon('./assets/exit-button.png'), 'Programm beenden', self)
       exit_action.triggered.connect(self.close)
       
-      stamp_action = QAction(QIcon('./src/assets/locher.png'), 'Karten stanzen', self)
+      stamp_action = QAction(QIcon('./assets/locher.png'), 'Karten stanzen', self)
       stamp_action.triggered.connect(self.stampCards)
       
-      weave_action = QAction(QIcon('./src/assets/webstuhl.png'), 'Stoffe weben', self)
+      weave_action = QAction(QIcon('./assets/webstuhl.png'), 'Stoffe weben', self)
       # weave_action.triggered.connect(self.stampCards)
 
       spacer = QWidget()

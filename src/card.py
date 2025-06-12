@@ -129,6 +129,7 @@ def scanStamp(path, name):
 
   width = 5 * 254
   height = 5 * 70
+  margin = 20
 
   cam = cv.VideoCapture(0, cv.CAP_DSHOW)
   cam.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
@@ -155,16 +156,16 @@ def scanStamp(path, name):
       for pnt in sources:
         x, y = pnt[0]
         if x > xc and y > yc:
-          targets.append([width, height])
+          targets.append([margin+width, margin+height])
         elif x < xc and y > yc:
-          targets.append([0, height])
+          targets.append([margin+0, margin+height])
         elif x > xc and y < yc:
-          targets.append([width, 0])
+          targets.append([margin+width, margin+0])
         else:
-          targets.append([0,0])
+          targets.append([margin+0,margin+0])
 
       matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
-      warp = cv.warpPerspective(image, matrix, (width, height))
+      warp = cv.warpPerspective(image, matrix, (2*margin+width, 2*margin+height))
 
       # find holes in transformed image
       image = warp.copy()
@@ -289,8 +290,8 @@ def compareCards(card1, card2):
 
 
 if __name__ == "__main__":
-  path = "c:/temp/jacq-suite/data/TH913_3523"
-  name = "A039"
+  path = "d:/temp/jacq-suite/data/TH913_3523"
+  name = "A040"
 
   scanStamp(path, name)
 

@@ -122,6 +122,15 @@ def writeStamps(path, cards):
   with open(path+"/stamps.json", 'w') as jsonfile:
     json.dump(cards, jsonfile)
 
+def nearestPoint(points, x, y):
+  min_dist = 10e6
+  nearest = None
+  for xh, yh in points:
+    dist = sqrt(pow(x-xh,2) + pow(y-yh,2))
+    if dist < min_dist:
+      nearest = (xh, yh)
+      min_dist = dist
+  return nearest
 
 def scanStamp(path, name):
   card = None

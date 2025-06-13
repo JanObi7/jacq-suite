@@ -138,31 +138,68 @@ def scanStamp(path, name):
   while True:
     _, image = cam.read()
 
+    # rotate image
+    image = cv.rotate(image, cv.ROTATE_180)
+
     # try to find card contour
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     _, thresh = cv.threshold(gray, 125, 255, cv.THRESH_BINARY)
     contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-    # look for card corners
-    sources = None
+    # look for card contour
+    card = None
     for cnt in contours:
       (xc, yc), radius = cv.minEnclosingCircle(cnt)
-      if radius > 350 and radius < 400:
-        sources = cv.approxPolyDP(cnt, 10, True)
+      if radius > 350 and radius < 450:
+        card = cv.approxPolyDP(cnt, 10, True)
         break
 
-    if sources is not None and len(sources) == 4:
+    # find tholes and dholes inside the card
+    tholes = []
+    dholes = []
+    if card is not None and len(card) == 4:
+      for cnt in contours:
+        (x, y), r = cv.minEnclosingCircle(cnt)
+        if cv.pointPolygonTest(card, (x,y), False) >= 0:
+          if r > 7 and r < 10:
+            tholes.append((x, y))
+          elif r > 3 and r < 7:
+            dholes.append((x, y))
+
+      # sort tholes from left to right
+      tholes = sorted(tholes, key=lambda hole: hole[0])
+
+    if len(tholes) == 4:
+      # get transformation from left and right tholes
+      xl, yl = tholes[0]
+      xr, yr = tholes[3]
+
+      dist = sqrt(pow(xr-xl,2) + pow(yr-yl,2))
+      ppmm = dist / 220 # Abstand 220 mm
+
+      x0 = (xr+xl)/2
+      y0 = (yr+yl)/2
+      a = atan2(yr-yl, xr-xl)
+
+      # calc real and image points from outer binding holes
+      zoom = 5
+      width = zoom * 254
+      height = zoom * 70
+      margin = 20
+
+      coords = [(-116, -24), (-116, +24), (+116, -24), (+116, +24)]
+      sources = []
       targets = []
-      for pnt in sources:
-        x, y = pnt[0]
-        if x > xc and y > yc:
-          targets.append([margin+width, margin+height])
-        elif x < xc and y > yc:
-          targets.append([margin+0, margin+height])
-        elif x > xc and y < yc:
-          targets.append([margin+width, margin+0])
-        else:
-          targets.append([margin+0,margin+0])
+
+      for xr, yr in coords:
+          dx = ppmm*xr
+          dy = ppmm*yr
+          x = x0 + dx*cos(a) - dy*sin(a)
+          y = y0 + dx*sin(a) + dy*cos(a)
+          xh, yh = nearestPoint(dholes, x, y)
+
+          sources.append([xh, yh])
+          targets.append([(2*margin+width)/2 + zoom*xr, (2*margin+height)/2 + zoom*yr])
 
       matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
       warp = cv.warpPerspective(image, matrix, (2*margin+width, 2*margin+height))
@@ -175,76 +212,48 @@ def scanStamp(path, name):
 
       bholes = []
       dholes = []
-      bhole_left = None
-      bhole_right = None
       for cnt in contours:
-        (xc, yc), radius = cv.minEnclosingCircle(cnt)
-        if radius > 12 and radius < 18 and xc > 10 and xc < width-10:
+        (x, y), r = cv.minEnclosingCircle(cnt)
+        if r > 10 and r < 16 and x > 10 and x < 2*margin+width-10:
           bholes.append(cnt)
-          
-          if bhole_left is None:
-            bhole_left = cnt
+        elif r > 5 and r < 10:
+          # filter out binding holes
+          isbhole = False
+          for xh, yh in [(-116, -24), (-116, -12), (-116, 12), (-116, 24), (0, -24), (0, -12), (0, 12), (0, 24), (116, -24), (116, -12), (116, 12), (116, 24) ]:
+            if cv.pointPolygonTest(cnt, ((2*margin+width)/2 + zoom*xh, (2*margin+height)/2 + zoom*yh), False) >= 0:
+              isbhole = True
+              break
+          if not isbhole:
+            dholes.append(cnt)
+
+      # cv.drawContours(image, dholes, -1, (0,0,255), 1)
+
+      data = []
+      for i in range(0,60):
+        row = []
+        for j in range(0,16):
+          x = (2*margin+width)/2 + zoom*4*i - zoom*120
+          y = (2*margin+height)/2 + zoom*4*j - zoom*30
+
+          match = False
+          for cnt in dholes:
+            if cv.pointPolygonTest(cnt, (x,y), False) >= 0:
+              match = True
+              break
+
+          if match: 
+            cv.circle(image, (int(x), int(y)), 3, (255,255,255), -1)
           else:
-            (xl, yl), rl = cv.minEnclosingCircle(bhole_left)
-            if xc < xl:
-              bhole_left = cnt
-          
-          if bhole_right is None:
-            bhole_right = cnt
-          else:
-            (xr, yr), rr = cv.minEnclosingCircle(bhole_right)
-            if xc > xr:
-              bhole_right = cnt
+            cv.circle(image, (int(x), int(y)), 3, (0,0,0), -1)
 
-        elif radius > 5 and radius < 10:
-          dholes.append(cnt)
+        data.append(row)
 
-      # cv.drawContours(image, bholes, -1, (255,255,0), -1)
-      # cv.drawContours(image, dholes, -1, (255,0,0), -1)
-
-      if bhole_left is not None and bhole_right is not None:
-        (xl, yl), rl = cv.minEnclosingCircle(bhole_left)
-        (xr, yr), rr = cv.minEnclosingCircle(bhole_right)
-
-        # Abstand 220 mm
-        dist = sqrt(pow(xr-xl,2) + pow(yr-yl,2))
-        ppmm = dist / 220
-
-        x0 = (xr+xl)/2
-        y0 = (yr+yl)/2
-        a = atan2(yr-yl, xr-xl)
-
-        # draw raster points
-        data = []
-        for i in range(0,60):
-          row = []
-          for j in range(0,16):
-            dx = ppmm*(4*i-120)
-            dy = ppmm*(4*j-30)
-            x = x0 + dx*cos(a) - dy*sin(a)
-            y = y0 + dx*sin(a) + dy*cos(a)
-
-            match = False
-            for cnt in dholes:
-              if cv.pointPolygonTest(cnt, (x,y), False) >= 0:
-                match = True
-                break
-
-            if match: 
-              row.append(1) 
-              cv.circle(image, (int(x), int(y)), 3, (255,255,255), -1)
-            else:
-              row.append(0)
-              cv.circle(image, (int(x), int(y)), 3, (0,0,0), -1)
-
-          data.append(row)
-
-        # create card
-        card = {
-          "name": name,
-          "type": "880",
-          "data": data,
-        }
+      # create card
+      card = {
+        "name": name,
+        "type": "880",
+        "data": data,
+      }
       
 
     cv.imshow("image", image)
@@ -271,6 +280,7 @@ def scanStamp(path, name):
 
   cv.destroyAllWindows()
   cam.release()
+
 
 def compareCards(card1, card2):
   passes = 0

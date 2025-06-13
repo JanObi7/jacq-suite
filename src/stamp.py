@@ -326,7 +326,7 @@ class CardView(QWidget):
     self.setColumn(idx)
 
   def scanStamp(self):
-    scanStamp(self.project.path, self.card["name"])
+    scanStamp(self.project.path, self.card["name"], self.card)
 
     self.stamps = self.project.readStamps()
 

@@ -132,7 +132,7 @@ def nearestPoint(points, x, y):
       min_dist = dist
   return nearest
 
-def scanStamp(path, name):
+def scanStamp(path, name, ref=None):
   card = None
   warp = None
 
@@ -143,6 +143,7 @@ def scanStamp(path, name):
   cam = cv.VideoCapture(0, cv.CAP_DSHOW)
   cam.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
   cam.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
+  cam.set(cv.CAP_PROP_AUTOFOCUS, 255)
 
   while True:
     _, image = cam.read()
@@ -250,10 +251,14 @@ def scanStamp(path, name):
               match = True
               break
 
-          if match: 
-            cv.circle(image, (int(x), int(y)), 3, (255,255,255), -1)
+          row.append(1 if match else 0)
+
+          if ref:
+            color = (0, 255, 0) if match and ref["data"][i][j] == 1 or not match and ref["data"][i][j] == 0 else (0,0,255)
           else:
-            cv.circle(image, (int(x), int(y)), 3, (0,0,0), -1)
+            color = (255,255,255) if match else (0,0,0)
+
+          cv.circle(image, (int(x), int(y)), 7, color, 1)
 
         data.append(row)
 

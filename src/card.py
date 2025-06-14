@@ -153,8 +153,11 @@ def scanStamp(path, name, ref=None):
 
     # try to find card contour
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    _, thresh = cv.threshold(gray, 125, 255, cv.THRESH_BINARY)
+    _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
     contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+    # cv.imshow("gray", gray)
+    # cv.drawContours(image, contours, -1, (0,0,255),1)
 
     # look for card contour
     card = None
@@ -171,14 +174,14 @@ def scanStamp(path, name, ref=None):
       for cnt in contours:
         (x, y), r = cv.minEnclosingCircle(cnt)
         if cv.pointPolygonTest(card, (x,y), False) >= 0:
-          if r > 7 and r < 10:
+          if r > 8 and r < 11:
             tholes.append((x, y))
-          elif r > 3 and r < 7:
+          elif r > 4 and r < 8:
             dholes.append((x, y))
 
       # sort tholes from left to right
       tholes = sorted(tholes, key=lambda hole: hole[0])
-
+    
     if len(tholes) == 4:
       # get transformation from left and right tholes
       xl, yl = tholes[0]
@@ -202,7 +205,7 @@ def scanStamp(path, name, ref=None):
       targets = []
 
       for xr, yr in coords:
-          dx = ppmm*xr
+          dx = ppmm*xr*1.01
           dy = ppmm*yr
           x = x0 + dx*cos(a) - dy*sin(a)
           y = y0 + dx*sin(a) + dy*cos(a)
@@ -217,16 +220,14 @@ def scanStamp(path, name, ref=None):
       # find holes in transformed image
       image = warp.copy()
       gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-      _, thresh = cv.threshold(gray, 125, 255, cv.THRESH_BINARY)
+      _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
       contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
       bholes = []
       dholes = []
       for cnt in contours:
         (x, y), r = cv.minEnclosingCircle(cnt)
-        if r > 10 and r < 16 and x > 10 and x < 2*margin+width-10:
-          bholes.append(cnt)
-        elif r > 5 and r < 10:
+        if r > 5 and r < 10:
           # filter out binding holes
           isbhole = False
           for xh, yh in [(-116, -24), (-116, -12), (-116, 12), (-116, 24), (0, -24), (0, -12), (0, 12), (0, 24), (116, -24), (116, -12), (116, 12), (116, 24) ]:

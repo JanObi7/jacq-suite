@@ -10,6 +10,7 @@ import time, math, os
 
 from settings import readSetting, writeSetting
 from card import scanStamp
+import camera
 
 #############################################################################
 class Hardware:
@@ -453,11 +454,14 @@ class CardStamper(QMainWindow):
     poti_action = QAction(QIcon('./assets/poti.png'), 'Poti kalibrieren', self)
     poti_action.triggered.connect(self.calibratePoti)
 
-    scan_action = QAction(QIcon('./assets/webcam.png'), 'Karte scannen', self)
+    scan_action = QAction(QIcon('./assets/scan-card.png'), 'Karte scannen', self)
     scan_action.triggered.connect(self.scan)
 
     remove_action = QAction(QIcon('./assets/remove-card.png'), 'Karte verwerfen', self)
     remove_action.triggered.connect(self.remove)
+
+    calib_action = QAction(QIcon('./assets/webcam.png'), 'Kamera kalibrieren', self)
+    calib_action.triggered.connect(self.calibrateCamera)
 
     close_action = QAction(QIcon('./assets/close.png'), 'Stanzen beenden', self)
     close_action.triggered.connect(self.close)
@@ -480,6 +484,7 @@ class CardStamper(QMainWindow):
     toolbar.addSeparator()
     toolbar.addAction(scan_action)
     toolbar.addAction(remove_action)
+    toolbar.addAction(calib_action)
     toolbar.addWidget(spacer)
     toolbar.addAction(close_action)
 
@@ -520,3 +525,6 @@ class CardStamper(QMainWindow):
 
   def remove(self):
     self.view.removeStamp()
+
+  def calibrateCamera(self):
+    camera.calibrate()

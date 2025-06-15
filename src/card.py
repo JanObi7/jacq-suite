@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import json
 from math import pow, sqrt, atan2, sin, cos
+import camera
 
 def readCards(path):
   with open(path+"/cards.json", 'r') as jsonfile:
@@ -132,7 +133,7 @@ def nearestPoint(points, x, y):
       min_dist = dist
   return nearest
 
-def scanStamp(path, name, ref=None):
+def scanStamp(path, name, ref=None, threshold=125):
   card = None
   warp = None
 
@@ -140,20 +141,17 @@ def scanStamp(path, name, ref=None):
   height = 5 * 70
   margin = 20
 
-  cam = cv.VideoCapture(0, cv.CAP_DSHOW)
-  cam.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
-  cam.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
-  cam.set(cv.CAP_PROP_AUTOFOCUS, 255)
+  camera.open()
 
   while True:
-    _, image = cam.read()
+    image = camera.capture()
 
     # rotate image
     image = cv.rotate(image, cv.ROTATE_180)
 
     # try to find card contour
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
+    _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
     contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
     # cv.imshow("gray", gray)
@@ -166,7 +164,6 @@ def scanStamp(path, name, ref=None):
       if radius > 350 and radius < 450:
         card = cv.approxPolyDP(cnt, 10, True)
         break
-
 
     # warp the card and find tholes and dholes inside the card
     tholes = []
@@ -194,7 +191,7 @@ def scanStamp(path, name, ref=None):
       image = cv.warpPerspective(image, matrix, (4*margin+width, 4*margin+height))
 
       gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-      _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
+      _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
       contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
  
       # cv.drawContours(image, contours, -1, (0,255,255),1)
@@ -247,8 +244,10 @@ def scanStamp(path, name, ref=None):
       # find holes in transformed image
       image = warp.copy()
       gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-      _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
+      _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
       contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+      # cv.drawContours(image, contours, -1, (0,255,255),1)
 
       dholes = []
       for cnt in contours:
@@ -320,7 +319,7 @@ def scanStamp(path, name, ref=None):
       break
 
   cv.destroyAllWindows()
-  cam.release()
+  camera.close()
 
 
 def compareCards(card1, card2):
@@ -341,17 +340,7 @@ def compareCards(card1, card2):
 
 
 if __name__ == "__main__":
-  path = "d:/temp/jacq-suite/data/TH913_3523"
+  path = "c:/temp/jacq-suite/data/TH913_3523"
   name = "A040"
 
-  scanStamp(path, name)
-
-  cards = readCards(path)
-  stamps = readStamps(path)
-
-  for card in cards:
-    if card["name"] == name: break
-  for stamp in stamps:
-    if stamp["name"] == name: break
-
-  compareCards(card, stamp)
+  scanStamp(path, name, threshold=125)

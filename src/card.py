@@ -167,21 +167,48 @@ def scanStamp(path, name, ref=None):
         card = cv.approxPolyDP(cnt, 10, True)
         break
 
-    # find tholes and dholes inside the card
+
+    # warp the card and find tholes and dholes inside the card
     tholes = []
     dholes = []
     if card is not None and len(card) == 4:
+      (x, y), r = cv.minEnclosingCircle(card)
+      sources = [[0,720],[1280,720],[0,0],[1280,0]]
+      targets = [[2*margin,2*margin], [2*margin+width, 2*margin], [2*margin,2*margin+height], [2*margin+width, 2*margin+height]]
+
+      for i in range(4):
+        xc = card[i][0][0]
+        yc = card[i][0][1]
+        if xc < x:
+          if yc < sources[0][1]:
+            sources[0] = [xc,yc]
+          if yc > sources[2][1]:
+            sources[2] = [xc,yc]
+        else:
+          if yc < sources[1][1]:
+            sources[1] = [xc,yc]
+          if yc > sources[3][1]:
+            sources[3] = [xc,yc]
+
+      matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
+      image = cv.warpPerspective(image, matrix, (4*margin+width, 4*margin+height))
+
+      gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+      _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
+      contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+ 
+      # cv.drawContours(image, contours, -1, (0,255,255),1)
+
       for cnt in contours:
         (x, y), r = cv.minEnclosingCircle(cnt)
-        if cv.pointPolygonTest(card, (x,y), False) >= 0:
-          if r > 8 and r < 11:
-            tholes.append((x, y))
-          elif r > 4 and r < 8:
-            dholes.append((x, y))
+        if r > 12 and r < 16:
+          tholes.append((x, y))
+        elif r > 5 and r < 10:
+          dholes.append((x, y))
 
       # sort tholes from left to right
       tholes = sorted(tholes, key=lambda hole: hole[0])
-    
+
     if len(tholes) == 4:
       # get transformation from left and right tholes
       xl, yl = tholes[0]
@@ -223,7 +250,6 @@ def scanStamp(path, name, ref=None):
       _, thresh = cv.threshold(gray, 150, 255, cv.THRESH_BINARY)
       contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-      bholes = []
       dholes = []
       for cnt in contours:
         (x, y), r = cv.minEnclosingCircle(cnt)

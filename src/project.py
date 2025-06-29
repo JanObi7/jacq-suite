@@ -219,13 +219,15 @@ class Project:
     # cv.imshow("debug", cv.resize(self.scans, (400,800)))
 
   def createScan(self):
+    w = self.config["design"]["width"]
+    h = self.config["design"]["height"]
     return {
       "filename": "...",
       "limit": 150,
-      "kmin": 0,
-      "kmax": 0,
-      "smin": 0,
-      "smax": 0,
+      "kmin": 1,
+      "kmax": w,
+      "smin": 1,
+      "smax": h,
       "point_tl": [0,0],
       "point_tr": [0,0],
       "point_bl": [0,0],

@@ -284,15 +284,16 @@ class MainWindow(QMainWindow):
     xmax = 0
     ymin = 0
     ymax = 0
+    zoom = 4
 
 
     def mouse_event(event,x,y,flags,param):
-      nonlocal stage, xs, ys, xmin, xmax, ymin, ymax
+      nonlocal stage, xs, ys, xmin, xmax, ymin, ymax, zoom
 
       if event == cv.EVENT_LBUTTONUP:
         if stage == 0:
-          xs = 4*x
-          ys = 4*y
+          xs = zoom*x
+          ys = zoom*y
           stage = 1
           update_view()
 
@@ -302,12 +303,13 @@ class MainWindow(QMainWindow):
           stage = 2
 
     def update_view():
-      nonlocal stage, xs, ys, xmin, xmax, ymin, ymax
+      nonlocal stage, xs, ys, xmin, xmax, ymin, ymax, zoom
 
       if stage == 0:
         scan = cv.imread(pathname)
         h, w, c = np.shape(scan)
-        scan = cv.resize(scan, (int(w/4), int(h/4)))
+        zoom = max(int(w/1500), int(h/750))
+        scan = cv.resize(scan, (int(w/zoom), int(h/zoom)))
 
       elif stage == 1:
         scan = cv.imread(pathname)

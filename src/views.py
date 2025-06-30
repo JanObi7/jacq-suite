@@ -61,7 +61,7 @@ class PatternScene(QGraphicsScene):
         self.s2 = 1
         self.selecting = False
 
-        self.limit = 180
+        self.limit = self.project.config["design"]["limit"] if "limit" in self.project.config["design"] else 180
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -190,6 +190,11 @@ class PatternScene(QGraphicsScene):
 
 
         return super().keyReleaseEvent(event)
+    
+    def setLimit(self, limit):
+        self.limit = limit
+        self.project.config["design"]["limit"] = limit
+        self.project.saveConfig()
 
     def detect(self, src, nx, ny, fx, fy, limit):
       mask = cv.cvtColor(src, cv.COLOR_BGR2HLS)

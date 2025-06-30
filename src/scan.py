@@ -260,8 +260,7 @@ class MainWindow(QMainWindow):
     limit.setSingleStep(5)
 
     def save():
-      self.editor.scene.limit = limit.value()
-      print(self.editor.scene.limit)
+      self.editor.scene.setLimit(limit.value())
       dialog.close()
 
     ok = QPushButton("speichern")

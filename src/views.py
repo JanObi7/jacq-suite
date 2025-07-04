@@ -101,11 +101,29 @@ class PatternScene(QGraphicsScene):
             s = math.floor(event.scenePos().y() / z / self.dk)
 
             if k >= 0 and k < self.nk and s >= 0 and s < self.ns:
-                if tuple(self.project.design[s,k]) == (255,255,255,255):
-                    self.project.design[s,k] = (255,0,0,255)
+                if "markers" in self.project.config["design"] and self.project.config["design"]["markers"] == "mehrfarbig":
+                  colors = [
+                    (255,255,255,255), # red
+                    (255,0,0,255), # red
+                    (0,255,0,255), # green
+                    (0,0,255,255), # blue
+                  ]
+                  color = tuple(self.project.design[s,k])
+                  print(color)
+                  try:
+                    idx = colors.index(color)
+                    idx = (idx+1)%len(colors)
+                  except:
+                    idx = 0
+                  print(idx)
+                  self.project.design[s,k] = colors[idx]
+                  self.updatePattern()
                 else:
-                    self.project.design[s,k] = (255,255,255,255)
-                self.updatePattern()
+                  if tuple(self.project.design[s,k]) == (255,255,255,255):
+                      self.project.design[s,k] = (255,0,0,255)
+                  else:
+                      self.project.design[s,k] = (255,255,255,255)
+                  self.updatePattern()
 
         elif self.selecting:
             self.selecting = False
@@ -129,7 +147,10 @@ class PatternScene(QGraphicsScene):
         # print(key)
 
         if key == Qt.Key.Key_Space:
-            self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, self.limit)
+            if "markers" in self.project.config["design"] and self.project.config["design"]["markers"] == "mehrfarbig":
+              self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detectColors(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, self.limit)
+            else:
+              self.project.design[self.s1:self.s2+1,self.k1:self.k2+1] = self.detect(self.project.scans[z*self.dk*self.s1-self.oy:z*self.dk*(self.s2+1)-self.oy, z*self.ds*self.k1-self.ox:z*self.ds*(self.k2+1)-self.ox], self.k2-self.k1+1, self.s2-self.s1+1, z*self.ds, z*self.dk, self.limit)
             self.updatePattern()
 
         if key == Qt.Key.Key_1:
@@ -217,6 +238,53 @@ class PatternScene(QGraphicsScene):
             color = (0,0,255,255)
 
           target[y,x] = color
+
+      return target
+    
+    def detectColors(self, src, nx, ny, fx, fy, limit):
+      print("Farben erkennen")
+      colors = [
+        (255,0,0,255), # red
+        (0,255,0,255), # green
+        (0,0,255,255), # blue
+      ]
+
+      mask = cv.cvtColor(src, cv.COLOR_RGB2HLS)
+      mask_white = cv.inRange(mask[:,:,1], limit, 255)
+      mask_red = cv.inRange(mask[:,:,0], 0, 20)
+      mask_green = cv.inRange(mask[:,:,0], 55, 80)
+      mask_blue = cv.inRange(mask[:,:,0], 100, 120)
+
+      # cv.imshow("src", src,)
+      # cv.imshow("white", mask_white)
+      # cv.imshow("red", mask_red)
+      # cv.imshow("green", mask_green)
+      # cv.imshow("blue", mask_blue)
+
+      target = np.zeros((ny,nx,4), np.uint8)
+
+      sum_max = 255*(fx-2)*(fy-2)
+      for x in range(nx):
+        for y in range(ny):
+          sum_white = np.sum(mask_white[fy*y+1:fy*y+fy-1,fx*x+1:fx*x+fx-1])
+          sum_red = np.sum(mask_red[fy*y+1:fy*y+fy-1,fx*x+1:fx*x+fx-1])
+          sum_green = np.sum(mask_green[fy*y+1:fy*y+fy-1,fx*x+1:fx*x+fx-1])
+          sum_blue = np.sum(mask_blue[fy*y+1:fy*y+fy-1,fx*x+1:fx*x+fx-1])
+
+          
+          if sum_white > 0.4*sum_max:
+            target[y,x] = (255,255,255,255)
+            print(x, y, sum_max, sum_white, sum_red, sum_green, sum_blue, "white")
+          else:
+            sums = [sum_red, sum_green, sum_blue]
+            max_sum = max(sums)
+            if max_sum > 0.2*sum_max:
+              i = sums.index(max_sum)
+              target[y,x] = colors[i]
+              print(x, y, sum_max, sum_white, sum_red, sum_green, sum_blue, max_sum, i)
+            else:
+              target[y,x] = (0,255,255,255)
+              print(x, y, sum_max, sum_white, sum_red, sum_green, sum_blue, max_sum, "unsicher")
 
       return target
     

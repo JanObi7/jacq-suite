@@ -197,6 +197,8 @@ def render(pattern, dk, ds):
 
   # set red fields
   red = (255,0,0,255)
+  green = (0,255,0,255)
+  blue = (0,0,255,255)
   white = (255,255,255,255)
   empty = (0,0,0,0)
 
@@ -205,6 +207,10 @@ def render(pattern, dk, ds):
       color = (int(pattern[ns-s-1,k][0]), int(pattern[ns-s-1,k][1]), int(pattern[ns-s-1,k][2]), int(pattern[ns-s-1,k][3]))
       if color == red:
         image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (0,0,200)
+      elif color == green:
+        image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (100,130,60)
+      elif color == blue:
+        image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (190,100,60)
       elif color == empty:
         image[200+dk*(ns-s-1):200+dk*(ns-s), 200+ds*k:200+ds*k+ds] = (100,100,100)
 

@@ -162,12 +162,16 @@ class MainWindow(QMainWindow):
     div = QComboBox()
     div.addItems(["4-16", "5-16", "6-16", "6-20", "7-12", "7-16", "8-18", "8-20", "9-8", "10-12"])
     div.setCurrentText(str(self.project.config["design"]["dy"]) + "-" + str(self.project.config["design"]["dx"]))
+    markers = QComboBox()
+    markers.addItems(["einfarbig", "mehrfarbig"])
+    markers.setCurrentText(self.project.config["design"]["markers"] if "markers" in self.project.config["design"] else "einfarbig")
 
     def save():
       self.project.config["design"]["width"] = int(nk.text())
       self.project.config["design"]["height"] = int(ns.text())
       self.project.config["design"]["dx"] = int(div.currentText().split("-")[1])
       self.project.config["design"]["dy"] = int(div.currentText().split("-")[0])
+      self.project.config["design"]["markers"] = markers.currentText()
       self.project.saveConfig()
 
       self.project.initDesign()
@@ -184,6 +188,7 @@ class MainWindow(QMainWindow):
     layout.addRow("Anzahl Ketten:", nk)
     layout.addRow("Anzahl Schüsse:", ns)
     layout.addRow("Teilung:", div)
+    layout.addRow("Markierungen:", markers)
     layout.addWidget(ok)
 
     dialog.setLayout(layout)

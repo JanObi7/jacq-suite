@@ -7,7 +7,10 @@ cam = None
 def open():
   global cam, mtx, dist
 
-  cam = cv.VideoCapture(0, cv.CAP_DSHOW)
+  id = readSetting("camera_idx", 0)
+  print("camera",id)
+
+  cam = cv.VideoCapture(id, cv.CAP_DSHOW)
   cam.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
   cam.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
   cam.set(cv.CAP_PROP_AUTOFOCUS, 0)

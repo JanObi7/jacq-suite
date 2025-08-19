@@ -39,6 +39,7 @@
   "voltage_min": 523,
   "voltage_max": 1365,
   "voltage_switch": 1215,
+  "camera_idx": 0,
   "camera_matrix": [
     [
       916.498866809917,

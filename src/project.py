@@ -244,6 +244,22 @@ class Project:
     self.saveConfig()
     self.loadScans()
 
+  def isScanValid(self, scan):
+    if scan["filename"] == "...":
+      return False
+    elif scan["kmax"] < scan["kmin"] or scan["smax"] < scan["smin"]:
+      return False
+    elif scan["point_tl"][0] == 0 or scan["point_tl"][1] == 0:
+      return False
+    elif scan["point_tr"][0] == 0 or scan["point_tr"][1] == 0:
+      return False
+    elif scan["point_bl"][0] == 0 or scan["point_bl"][1] == 0:
+      return False
+    elif scan["point_br"][0] == 0 or scan["point_br"][1] == 0:
+      return False
+    else:
+      return True
+
   def buildProgram(self):
     red = (255,0,0,255)
     white = (255,255,255,255)

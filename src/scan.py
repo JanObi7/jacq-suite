@@ -111,15 +111,25 @@ class MainWindow(QMainWindow):
 
     scans = QListWidget()
 
+    def updateDialog():
+      if scans.currentRow() >= 0:
+        btn_edit.setEnabled(True)
+        btn_remove.setEnabled(True)
+      else:
+        btn_edit.setEnabled(False)
+        btn_remove.setEnabled(False)
+
     def updateScans():
       scans.clear()
       for scan in self.project.config["scans"]:
         scans.addItem(f"{scan["filename"]}: K: {scan["kmin"]} .. {scan["kmax"]}, S: {scan["smin"]} .. {scan["smax"]}")
+      updateDialog()
 
     def createScan():
       scan = self.project.createScan()
       self.editScan(scan)
-      self.project.insertScan(scan)
+      if self.project.isScanValid(scan):
+        self.project.insertScan(scan)
       updateScans()
 
     def deleteScan():
@@ -142,6 +152,9 @@ class MainWindow(QMainWindow):
     btn_remove.pressed.connect(deleteScan)
     btn_ok = QPushButton("OK")
     btn_ok.pressed.connect(dialog.close)
+
+    scans.clicked.connect(updateDialog)
+    updateDialog()
 
     layout1 = QVBoxLayout()
     layout1.addWidget(btn_add)
@@ -207,33 +220,53 @@ class MainWindow(QMainWindow):
 
     dialog.setLayout(layout)
 
+    def updateDialog():
+      ok.setEnabled(self.project.isScanValid(scan))
+      if scan["filename"] == "...":
+        point_tl.setEnabled(False)
+        point_tr.setEnabled(False)
+        point_bl.setEnabled(False)
+        point_br.setEnabled(False)
+      else:
+        point_tl.setEnabled(True)
+        point_tr.setEnabled(True)
+        point_bl.setEnabled(True)
+        point_br.setEnabled(True)
+
     def fn_pressed():
       pathname, _ = QFileDialog.getOpenFileName(caption="Scan auswählen", dir=self.project.path+"/scans")
       if pathname:
         scan["filename"] = os.path.basename(pathname)
         filename.setText(scan["filename"])
+        updateDialog()
 
     def tl_pressed():
       scan["point_tl"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_tl.setText(str(scan["point_tl"]))
+      updateDialog()
 
     def tr_pressed():
       scan["point_tr"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_tr.setText(str(scan["point_tr"]))
+      updateDialog()
 
     def bl_pressed():
       scan["point_bl"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_bl.setText(str(scan["point_bl"]))
+      updateDialog()
 
     def br_pressed():
       scan["point_br"] = self.selectScanPoint(self.project.path+"/scans/"+scan["filename"])
       point_br.setText(str(scan["point_br"]))
+      updateDialog()
 
     filename.pressed.connect(fn_pressed)  
     point_tl.pressed.connect(tl_pressed)
     point_tr.pressed.connect(tr_pressed)
     point_bl.pressed.connect(bl_pressed)
     point_br.pressed.connect(br_pressed)
+
+    updateDialog()
 
     dialog.exec()
 

@@ -63,49 +63,6 @@ class MainWindow(QMainWindow):
         self.project.loadScans()
         self.editor.scene.updateScans()
 
-  def initPattern(self):
-    dialog = QDialog(self)
-    layout = QFormLayout()
-
-    nk = QLineEdit(str(self.project.config["design"]["width"]))
-    ns = QLineEdit(str(self.project.config["design"]["height"]))
-    div = QComboBox()
-    div.addItems(["4-16", "5-16", "6-16", "6-20", "7-12", "7-16", "8-8", "8-18", "9-8", "9-16", "10-12"])
-    div.setCurrentText(str(self.project.config["design"]["dy"]) + "-" + str(self.project.config["design"]["dx"]))
-
-    sample = QComboBox()
-    sample.addItems(["-", "atlas"])
-    sample.setCurrentText("-")
-
-    def save():
-      self.project.config["design"]["width"] = int(nk.text())
-      self.project.config["design"]["height"] = int(ns.text())
-      self.project.config["design"]["dx"] = int(div.currentText().split("-")[1])
-      self.project.config["design"]["dy"] = int(div.currentText().split("-")[0])
-      self.project.saveConfig()
-
-      self.project.initDesign(sample=sample.currentText())
-      self.project.saveDesign()
-
-      dialog.close()
-
-      self.updateViews()
-
-
-    ok = QPushButton("OK")
-    ok.pressed.connect(save)
-
-    layout.addRow("Anzahl Ketten:", nk)
-    layout.addRow("Anzahl Schüsse:", ns)
-    layout.addRow("Teilung:", div)
-    layout.addRow("Muster:", sample)
-    layout.addWidget(ok)
-
-    dialog.setLayout(layout)
-    dialog.setWindowTitle("Muster festlegen")
-
-    dialog.exec()
-
   def editScans(self):
     dialog = QDialog(self)
 

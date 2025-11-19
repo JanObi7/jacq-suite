@@ -66,16 +66,10 @@ class PatternScene(QGraphicsScene):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self.selecting = True
-            self.k1 = math.floor(event.scenePos().x() / z / self.ds)
-            self.s1 = math.floor(event.scenePos().y() / z / self.dk)
-            self.k2 = self.k1
-            self.s2 = self.s1
-
-            if self.tileMode:
-                self.k1 = math.floor(self.k1/self.dk)*self.dk
-                self.s1 = math.floor(self.s1/self.ds)*self.ds
-                self.k2 = math.floor(self.k2/self.dk+1)*self.dk-1
-                self.s2 = math.floor(self.s2/self.ds+1)*self.ds-1
+            self._k1 = math.floor(event.scenePos().x() / z / self.ds)
+            self._s1 = math.floor(event.scenePos().y() / z / self.dk)
+            self._k2 = self._k1
+            self._s2 = self._s1
 
             self.updateSelection()
 
@@ -84,12 +78,8 @@ class PatternScene(QGraphicsScene):
     
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not event.modifiers() == Qt.KeyboardModifier.ControlModifier and self.selecting:
-            self.k2 = math.floor(event.scenePos().x() / z / self.ds)
-            self.s2 = math.floor(event.scenePos().y() / z / self.dk)
-
-            if self.tileMode:
-                self.k2 = math.floor(self.k2/self.dk+1)*self.dk-1
-                self.s2 = math.floor(self.s2/self.ds+1)*self.ds-1
+            self._k2 = math.floor(event.scenePos().x() / z / self.ds)
+            self._s2 = math.floor(event.scenePos().y() / z / self.dk)
 
             self.updateSelection()
 
@@ -109,18 +99,53 @@ class PatternScene(QGraphicsScene):
 
         elif self.selecting:
             self.selecting = False
-            self.k2 = math.floor(event.scenePos().x() / z / self.ds)
-            self.s2 = math.floor(event.scenePos().y() / z / self.dk)
-
-            if self.tileMode:
-                self.k2 = math.floor(self.k2/self.dk+1)*self.dk-1
-                self.s2 = math.floor(self.s2/self.ds+1)*self.ds-1
+            self._k2 = math.floor(event.scenePos().x() / z / self.ds)
+            self._s2 = math.floor(event.scenePos().y() / z / self.dk)
 
             self.updateSelection()
 
         return super().mouseReleaseEvent(event)
     
     def updateSelection(self):
+        if self._k1 < 0: self._k1 = 0
+        if self._k1 > self.project.config["design"]["width"]-1: self._k1 = self.project.config["design"]["width"]-1
+        if self._k2 < 0: self._k2 = 0
+        if self._k2 > self.project.config["design"]["width"]-1: self._k2 = self.project.config["design"]["width"]-1
+        if self._s1 < 0: self._s1 = 0
+        if self._s1 > self.project.config["design"]["height"]-1: self._s1 = self.project.config["design"]["height"]-1
+        if self._s2 < 0: self._s2 = 0
+        if self._s2 > self.project.config["design"]["height"]-1: self._s2 = self.project.config["design"]["height"]-1
+
+        if self._k2 >= self._k1:
+            if self.tileMode:
+                self.k1 = math.floor(self._k1/self.dk)*self.dk
+                self.k2 = math.floor(self._k2/self.dk+1)*self.dk-1            
+            else:
+                self.k1 = self._k1
+                self.k2 = self._k2
+        else:
+            if self.tileMode:
+                self.k1 = math.floor(self._k2/self.dk)*self.dk
+                self.k2 = math.floor(self._k1/self.dk+1)*self.dk-1            
+            else:
+                self.k1 = self._k2
+                self.k2 = self._k1
+
+        if self._s2 >= self._s1:
+            if self.tileMode:
+                self.s1 = math.floor(self._s1/self.ds)*self.ds
+                self.s2 = math.floor(self._s2/self.ds+1)*self.ds-1            
+            else:
+                self.s1 = self._s1
+                self.s2 = self._s2
+        else:
+            if self.tileMode:
+                self.s1 = math.floor(self._s2/self.ds)*self.ds
+                self.s2 = math.floor(self._s1/self.ds+1)*self.ds-1            
+            else:
+                self.s1 = self._s2
+                self.s2 = self._s1
+
         self.selection.setRect(z*self.ds*self.k1, z*self.dk*self.s1, z*self.ds*(self.k2-self.k1+1), z*self.dk*(self.s2-self.s1+1))
         self.selection.setVisible(True)
 

@@ -25,6 +25,12 @@ class MainWindow(QMainWindow):
     bright_action = QAction(QIcon('./assets/brightness.png'), 'Erkennung anpassen', self)
     bright_action.triggered.connect(self.editBrightness)
 
+    self.dot_action = QAction(QIcon('./assets/dot_disabled.png'), 'Einzelauswahl', self)
+    self.dot_action.triggered.connect(self.unsetTileMode)
+
+    self.tile_action = QAction(QIcon('./assets/tile_disabled.png'), 'Blockauswahl', self)
+    self.tile_action.triggered.connect(self.setTileMode)
+
     close_action = QAction(QIcon('./assets/close.png'), 'Bearbeitung beenden', self)
     close_action.triggered.connect(self.close)
 
@@ -39,6 +45,9 @@ class MainWindow(QMainWindow):
 
     toolbar.addAction(scans_action)
     toolbar.addAction(bright_action)
+    toolbar.addSeparator()
+    toolbar.addAction(self.dot_action)
+    toolbar.addAction(self.tile_action)
     toolbar.addWidget(spacer)
     toolbar.addAction(close_action)
 
@@ -48,7 +57,9 @@ class MainWindow(QMainWindow):
     self.editor = PatternView(self, self.project)
     self.setCentralWidget(self.editor)
 
+    self.editor.scene.onTileMode.connect(self.updateToolbar)
     self.updateViews()
+    self.updateToolbar()
 
   def closeEvent(self, event: QCloseEvent) -> None:
       self.project.saveDesign()
@@ -263,6 +274,22 @@ class MainWindow(QMainWindow):
     dialog.setWindowTitle("Erkennung anpassen")
 
     dialog.exec()
+
+  def setTileMode(self):
+    self.editor.scene.tileMode = True
+    self.updateToolbar()
+
+  def unsetTileMode(self):
+    self.editor.scene.tileMode = False
+    self.updateToolbar()
+
+  def updateToolbar(self):
+    if self.editor.scene.tileMode:
+      self.dot_action.setIcon(QIcon('./assets/dot_disabled.png'))
+      self.tile_action.setIcon(QIcon('./assets/tile_enabled.png'))
+    else:
+      self.dot_action.setIcon(QIcon('./assets/dot_enabled.png'))
+      self.tile_action.setIcon(QIcon('./assets/tile_disabled.png'))
 
   ###################################################################
   def selectScanPoint(self, pathname):

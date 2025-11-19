@@ -14,12 +14,14 @@ z = 2
 
 class PatternScene(QGraphicsScene):
     selectionChanged = Signal(int, int)
+    onTileMode = Signal()
 
     def __init__(self, parent, project):
         super().__init__(parent)
 
         self.scanMode = True
         self.tileMode = True
+
         self.project = project
 
         self.nk = self.project.config["design"]["width"]
@@ -173,7 +175,7 @@ class PatternScene(QGraphicsScene):
             self.toggleMode()
 
         if key == Qt.Key.Key_B:
-            self.tileMode = not self.tileMode
+            self.toggleTileMode()
 
         if key == Qt.Key.Key_C:
             self.buffer = self.project.design[self.s1:self.s2+1, self.k1:self.k2+1]
@@ -266,6 +268,10 @@ class PatternScene(QGraphicsScene):
     def toggleMode(self):
         self.scanMode = not self.scanMode
         self.updatePattern()
+
+    def toggleTileMode(self):
+        self.tileMode = not self.tileMode
+        self.onTileMode.emit()
 
 class PatternView(QGraphicsView):
     def __init__(self, parent, project):

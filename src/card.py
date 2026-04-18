@@ -14,11 +14,11 @@ def writeCards(path, cards):
     json.dump(cards, jsonfile)
 
 # create a cards
-def createCard(name, type, dots, ctrl):
+def createCard(name, type, dots, ctrl=None):
   card = { "name": name, "type": type, "data": [] }
 
-  # init data with zeros
   if type == "880":
+    # init data with zeros
     for x in range(61):
       row = []
       for y in range(16):
@@ -51,35 +51,82 @@ def createCard(name, type, dots, ctrl):
       if x in [1,30,59]:
         x += 1
 
+  if type == "400":
+    # init data with zeros
+    for x in range(51):
+      row = []
+      for y in range(8):
+        row += [0]
+      card["data"] += [row]
+
+    # no ctrl data
+    # card["data"][0] = ctrl
+  
+    # set dots data
+    x = 0
+    y = 0
+    for dot in dots:
+      if dot == 1:
+        card["data"][x][y] = 1
+
+      # next dot
+      y += 1
+
+      # next row
+      if y >= 8:
+        x += 1
+        y -= 8
+
+      # skip middle binding row
+      if x == 25:
+        x += 1
+
   return card
 
-def buildCards(path):
+def buildCards(path, conf="2x880"):
   program = cv.imread(path+"/program.png")
   pattern = cv.cvtColor(program, cv.COLOR_BGRA2RGBA)
   ns, nk, _ = np.shape(pattern)
 
-  # generate cards
-  cardsA = []
-  cardsB = []
+  if conf == "2x880":
+    # generate cards
+    cardsA = []
+    cardsB = []
 
-  for s in range(ns):
-    # Leistensteuerung
-    if s%2 == 0: ctrl = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-    else: ctrl = [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    for s in range(ns):
+      # Leistensteuerung
+      if s%2 == 0: ctrl = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+      else: ctrl = [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
-    # read data from program
-    dotsA = []
-    dotsB = []
-    for k in range(880):
-      dotsA.append(1 if tuple(pattern[ns-s-1,k].tolist()) == (255,0,0,255) else 0)
-      dotsB.append(1 if tuple(pattern[ns-s-1,880+k].tolist()) == (255,0,0,255) else 0)
+      # read data from program
+      dotsA = []
+      dotsB = []
+      for k in range(880):
+        dotsA.append(1 if tuple(pattern[ns-s-1,k].tolist()) == (255,0,0,255) else 0)
+        dotsB.append(1 if tuple(pattern[ns-s-1,880+k].tolist()) == (255,0,0,255) else 0)
 
-    # build and append A and B cards
-    cardsA.append(createCard(f"A{(s+1):03d}", "880", dotsA, ctrl))
-    cardsB.append(createCard(f"B{(s+1):03d}", "880", dotsB, ctrl))
+      # build and append A and B cards
+      cardsA.append(createCard(f"A{(s+1):03d}", "880", dotsA, ctrl))
+      cardsB.append(createCard(f"B{(s+1):03d}", "880", dotsB, ctrl))
 
-  # write cards
-  writeCards(path, cardsA+cardsB)
+    # write cards
+    writeCards(path, cardsA+cardsB)
+
+  if conf == "1x400":
+    # generate cards
+    cards = []
+
+    for s in range(ns):
+      # read data from program
+      dots = []
+      for k in range(400):
+        dots.append(1 if tuple(pattern[ns-s-1,k].tolist()) == (255,0,0,255) else 0)
+
+      # build
+      cards.append(createCard(f"{(s+1):03d}", "400", dots))
+
+    # write cards
+    writeCards(path, cards)
 
 def renderCards(path):
   # read cards
@@ -87,33 +134,63 @@ def renderCards(path):
 
   for card in cards:
     
-    # build image
-    m = 20
-    image = np.zeros((m+340+m, m+50+580+580+50+m, 3), np.uint8)
+    if card["type"] == "880":
+      # build image
+      m = 20
+      image = np.zeros((m+340+m, m+50+580+580+50+m, 3), np.uint8)
 
-    # set background
-    image[m:m+340,m:m+1260] = (105,126,157)
+      # set background
+      image[m:m+340,m:m+1260] = (105,126,157)
 
-    # set binding holes
-    for x in [50,50+580,50+580+580]:
-      for y in [50, 110, 230, 290]:
-        cv.circle(image, (m+x, m+y), 7, (0,0,0), -1, cv.LINE_AA)
+      # set binding holes
+      for x in [50,50+580,50+580+580]:
+        for y in [50, 110, 230, 290]:
+          cv.circle(image, (m+x, m+y), 7, (0,0,0), -1, cv.LINE_AA)
 
-    # set fixing holes
-    for x in [50+30,50+580-30,50+580+30,50+580+580-30]:
-      cv.circle(image, (m+x, m+170), 15, (0,0,0), -1, cv.LINE_AA)
+      # set fixing holes
+      for x in [50+30,50+580-30,50+580+30,50+580+580-30]:
+        cv.circle(image, (m+x, m+170), 15, (0,0,0), -1, cv.LINE_AA)
 
-    # set data holes
-    for x in range(60):
-      for y in range(16):
-        if card["data"][x][y] == 1:
-          cv.circle(image, (m+50-20+20*x, m+20+20*y), 7, (0,0,0), -1, cv.LINE_AA)
+      # set data holes
+      for x in range(60):
+        for y in range(16):
+          if card["data"][x][y] == 1:
+            cv.circle(image, (m+50-20+20*x, m+20+20*y), 7, (0,0,0), -1, cv.LINE_AA)
 
-    # write card label
-    cv.putText(image, card["name"], (m+5,m+15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (50,50,50), 1, cv.LINE_AA)
+      # write card label
+      cv.putText(image, card["name"], (m+5,m+15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (50,50,50), 1, cv.LINE_AA)
 
-    # save image
-    cv.imwrite(path+f"/cards/{card["name"]}.png", image)
+      # save image
+      cv.imwrite(path+f"/cards/{card["name"]}.png", image)
+
+    if card["type"] == "400":
+      # build image
+      m = 20
+      image = np.zeros((m+300+m, m+2000+m, 3), np.uint8)
+
+      # set background
+      image[m:m+300,m:m+2000] = (105,126,157)
+
+      # set binding holes
+      for x in [1000-970,1000,1000+970]:
+        for y in [60,240]:
+          cv.circle(image, (m+x, m+y), 14, (0,0,0), -1, cv.LINE_AA)
+
+      # set fixing holes
+      for x in [1000-920,1000+920]:
+        cv.circle(image, (m+x, m+150), 25, (0,0,0), -1, cv.LINE_AA)
+
+      # set data holes
+      for x in range(51):
+        for y in range(8):
+          if card["data"][x][y] == 1:
+            cv.circle(image, (m+1000-875+35*x, m+28+35*y), 12, (0,0,0), -1, cv.LINE_AA)
+
+      # write card label
+      cv.putText(image, card["name"], (m+5,m+15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (50,50,50), 1, cv.LINE_AA)
+
+      # save image
+      cv.imwrite(path+f"/cards/{card["name"]}.png", image)
 
 def readStamps(path):
   with open(path+"/stamps.json", 'r') as jsonfile:

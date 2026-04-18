@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
     nk = QLineEdit(str(self.project.config["design"]["width"]))
     ns = QLineEdit(str(self.project.config["design"]["height"]))
     div = QComboBox()
-    div.addItems(["4-16", "5-16", "6-16", "6-20", "7-12", "7-16", "8-8", "8-18", "8-20", "8-22", "9-8", "9-16", "9-20", "10-12", "29-19", "30-20"])
+    div.addItems(["4-16", "5-16", "6-16", "6-20", "7-12", "7-16", "8-8", "8-10", "8-18", "8-20", "8-22", "9-8", "9-16", "9-20", "10-12", "29-19", "30-20"])
     div.setCurrentText(str(self.project.config["design"]["dy"]) + "-" + str(self.project.config["design"]["dx"]))
 
     def save():
@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
     rule.setCurrentText(self.project.config["program"]["rule"])
 
     config = QComboBox()
-    config.addItems(["2x880"])
+    config.addItems(["2x880", "1x400"])
     config.setCurrentText(self.project.config["program"]["config"])
 
     def save():

@@ -414,7 +414,7 @@ class Project:
     cv.imwrite(self.path+"/program_full.png", image)
 
   def generateCards(self):
-    card.buildCards(self.path)
+    card.buildCards(self.path, self.config["program"]["config"])
     card.renderCards(self.path)
 
   def renderTexture(self, name):

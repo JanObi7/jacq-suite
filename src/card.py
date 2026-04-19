@@ -53,7 +53,7 @@ def createCard(name, type, dots, ctrl=None):
 
   if type == "400":
     # init data with zeros
-    for x in range(51):
+    for x in range(54):
       row = []
       for y in range(8):
         row += [0]
@@ -63,7 +63,7 @@ def createCard(name, type, dots, ctrl=None):
     # card["data"][0] = ctrl
   
     # set dots data
-    x = 0
+    x = 1
     y = 0
     for dot in dots:
       if dot == 1:
@@ -72,13 +72,17 @@ def createCard(name, type, dots, ctrl=None):
       # next dot
       y += 1
 
+      # skip fixing holes
+      if x in [0,53] and y == 3:
+        y += 2
+
       # next row
       if y >= 8:
         x += 1
         y -= 8
 
       # skip middle binding row
-      if x == 25:
+      if x == 26:
         x += 1
 
   return card
@@ -165,26 +169,26 @@ def renderCards(path):
 
     if card["type"] == "400":
       # build image
-      m = 20
-      image = np.zeros((m+300+m, m+2000+m, 3), np.uint8)
+      m = 16
+      image = np.zeros((m+284+m, m+2020+m, 3), np.uint8)
 
       # set background
-      image[m:m+300,m:m+2000] = (105,126,157)
+      image[m:m+284,m:m+2020] = (105,126,157)
 
       # set binding holes
-      for x in [1000-970,1000,1000+970]:
-        for y in [60,240]:
-          cv.circle(image, (m+x, m+y), 14, (0,0,0), -1, cv.LINE_AA)
+      for x in [41,993,1979]:
+        for y in [40,244]:
+          cv.circle(image, (m+x, m+y), 12, (80,80,80), -1, cv.LINE_AA)
 
       # set fixing holes
-      for x in [1000-920,1000+920]:
-        cv.circle(image, (m+x, m+150), 25, (0,0,0), -1, cv.LINE_AA)
+      for x in [92,1928]:
+        cv.circle(image, (m+x, m+142), 22, (80,80,80), -1, cv.LINE_AA)
 
       # set data holes
-      for x in range(51):
+      for x in range(54):
         for y in range(8):
           if card["data"][x][y] == 1:
-            cv.circle(image, (m+1000-875+35*x, m+28+35*y), 12, (0,0,0), -1, cv.LINE_AA)
+            cv.circle(image, (m+109+34*x, m+23+34*y), 12, (0,0,0), -1, cv.LINE_AA)
 
       # write card label
       cv.putText(image, card["name"], (m+5,m+15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (50,50,50), 1, cv.LINE_AA)

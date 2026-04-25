@@ -214,193 +214,380 @@ def nearestPoint(points, x, y):
       min_dist = dist
   return nearest
 
-def scanStamp(path, name, ref=None, threshold=125):
+def scanStamp(path, name, ref=None, threshold=125, type="880"):
   card = None
   warp = None
 
-  width = 5 * 254
-  height = 5 * 70
-  margin = 20
+  if type == "400":
+    width = 5 * 404
+    height = 5 * 58
+    margin = 20
 
-  camera.open()
+    camera.open()
 
-  while True:
-    image = camera.capture()
+    while True:
+      image = camera.capture()
+      # image = cv.imread(path+"/card_001.png")
 
-    # rotate image
-    image = cv.rotate(image, cv.ROTATE_180)
+      # rotate image
+      image = cv.rotate(image, cv.ROTATE_180)
 
-    # try to find card contour
-    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
-    contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+      # try to find card contour
+      gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+      _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
+      contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-    # cv.imshow("gray", gray)
-    # cv.drawContours(image, contours, -1, (0,0,255),1)
+      # cv.imshow("gray", gray)
+      # cv.drawContours(image, contours, -1, (0,0,255),1)
 
-    # look for card contour
-    card = None
-    for cnt in contours:
-      (xc, yc), radius = cv.minEnclosingCircle(cnt)
-      if radius > 350 and radius < 450:
-        card = cv.approxPolyDP(cnt, 10, True)
+      # look for card contour
+      card = None
+      for cnt in contours:
+        (xc, yc), radius = cv.minEnclosingCircle(cnt)
+        if radius > 500 and radius < 700:
+          card = cv.approxPolyDP(cnt, 10, True)
+          break
+
+      # warp the card and find tholes and dholes inside the card
+      tholes = []
+      dholes = []
+      if card is not None and len(card) == 4:
+        (x, y), r = cv.minEnclosingCircle(card)
+        sources = [[0,720],[1280,720],[0,0],[1280,0]]
+        targets = [[2*margin,2*margin], [2*margin+width, 2*margin], [2*margin,2*margin+height], [2*margin+width, 2*margin+height]]
+
+        for i in range(4):
+          xc = card[i][0][0]
+          yc = card[i][0][1]
+          if xc < x:
+            if yc < sources[0][1]:
+              sources[0] = [xc,yc]
+            if yc > sources[2][1]:
+              sources[2] = [xc,yc]
+          else:
+            if yc < sources[1][1]:
+              sources[1] = [xc,yc]
+            if yc > sources[3][1]:
+              sources[3] = [xc,yc]
+
+        matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
+        image = cv.warpPerspective(image, matrix, (4*margin+width, 4*margin+height))
+
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
+        contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+  
+        # cv.drawContours(image, contours, -1, (0,255,255),1)
+
+        for cnt in contours:
+          (x, y), r = cv.minEnclosingCircle(cnt)
+          if r > 20 and r < 30:
+            tholes.append((x, y))
+          elif r > 8 and r < 18:
+            dholes.append((x, y))
+
+        # sort tholes from left to right
+        tholes = sorted(tholes, key=lambda hole: hole[0])
+
+      if len(tholes) == 2:
+        # get transformation from left and right tholes
+        xl, yl = tholes[0]
+        xr, yr = tholes[1]
+
+        dist = sqrt(pow(xr-xl,2) + pow(yr-yl,2))
+        ppmm = dist / 367 # Abstand 367 mm
+
+        x0 = (xr+xl)/2
+        y0 = (yr+yl)/2
+        a = atan2(yr-yl, xr-xl)
+
+        # calc real and image points from outer binding holes
+        zoom = 5
+        width = zoom * 404
+        height = zoom * 58
+        margin = 20
+
+        coords = [(-192, -20.5), (-192, +20.5), (+192, -20.5), (+192, +20.5)]
+        sources = []
+        targets = []
+
+        for xr, yr in coords:
+            dx = ppmm*xr
+            dy = ppmm*yr
+            x = x0 + dx*cos(a) - dy*sin(a)
+            y = y0 + dx*sin(a) + dy*cos(a)
+            xh, yh = nearestPoint(dholes, x, y)
+
+            sources.append([xh, yh])
+            targets.append([(2*margin+width)/2 + zoom*xr, (2*margin+height)/2 + zoom*yr])
+
+        matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
+        warp = cv.warpPerspective(image, matrix, (2*margin+width, 2*margin+height))
+
+        # find holes in transformed image
+        image = warp.copy()
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
+        contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+        # cv.drawContours(image, contours, -1, (0,255,255),1)
+
+        dholes = []
+        for cnt in contours:
+          (x, y), r = cv.minEnclosingCircle(cnt)
+          if r > 8 and r < 18:
+            # filter out binding holes
+            isbhole = False
+            for xh, yh in [(-192, -20.5), (-192, 20.5), (-3, -20.5), (-3, 20.5), (192, -20.5), (192, 20.5) ]:
+              if cv.pointPolygonTest(cnt, ((2*margin+width)/2 + zoom*xh, (2*margin+height)/2 + zoom*yh), False) >= 0:
+                isbhole = True
+                break
+            if not isbhole:
+              dholes.append(cnt)
+
+        # cv.drawContours(image, dholes, -1, (0,0,255), 1)
+
+        data = []
+        for i in range(54):
+          row = []
+          for j in range(8):
+            x = (2*margin+width)/2 + zoom*6.84*i - zoom*181
+            y = (2*margin+height)/2 + zoom*6.85*j - zoom*24
+
+            match = False
+            for cnt in dholes:
+              if cv.pointPolygonTest(cnt, (x,y), False) >= 0:
+                match = True
+                break
+
+            row.append(1 if match else 0)
+
+            if ref:
+              color = (0, 255, 0) if match and ref["data"][i][j] == 1 or not match and ref["data"][i][j] == 0 else (0,0,255)
+            else:
+              color = (255,255,255) if match else (0,0,0)
+
+            cv.circle(image, (int(x), int(y)), 14, color, 1)
+
+          data.append(row)
+
+        # create card
+        card = {
+          "name": name,
+          "type": "400",
+          "data": data,
+        }
+        
+
+      cv.imshow("image", image)
+
+      k = cv.waitKey(1)
+
+      # Abbruch mit ESCAPE
+      if k == 27:
+        break
+    
+      # Okay mit RETURN
+      if k == 13:
+        if warp is not None:
+          cv.imwrite(path+f"/stamps/{name}.png", warp)
+
+        if card is not None:
+          stamps = [card]
+          for stamp in readStamps(path):
+            if stamp["name"] != name:
+              stamps.append(stamp)
+          writeStamps(path, stamps)
+
         break
 
-    # warp the card and find tholes and dholes inside the card
-    tholes = []
-    dholes = []
-    if card is not None and len(card) == 4:
-      (x, y), r = cv.minEnclosingCircle(card)
-      sources = [[0,720],[1280,720],[0,0],[1280,0]]
-      targets = [[2*margin,2*margin], [2*margin+width, 2*margin], [2*margin,2*margin+height], [2*margin+width, 2*margin+height]]
+    cv.destroyAllWindows()
+    camera.close()
 
-      for i in range(4):
-        xc = card[i][0][0]
-        yc = card[i][0][1]
-        if xc < x:
-          if yc < sources[0][1]:
-            sources[0] = [xc,yc]
-          if yc > sources[2][1]:
-            sources[2] = [xc,yc]
-        else:
-          if yc < sources[1][1]:
-            sources[1] = [xc,yc]
-          if yc > sources[3][1]:
-            sources[3] = [xc,yc]
+  else:
+    width = 5 * 254
+    height = 5 * 70
+    margin = 20
 
-      matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
-      image = cv.warpPerspective(image, matrix, (4*margin+width, 4*margin+height))
+    camera.open()
 
+    while True:
+      image = camera.capture()
+
+      # rotate image
+      image = cv.rotate(image, cv.ROTATE_180)
+
+      # try to find card contour
       gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
       _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
       contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
- 
-      # cv.drawContours(image, contours, -1, (0,255,255),1)
 
+      # cv.imshow("gray", gray)
+      # cv.drawContours(image, contours, -1, (0,0,255),1)
+
+      # look for card contour
+      card = None
       for cnt in contours:
-        (x, y), r = cv.minEnclosingCircle(cnt)
-        if r > 12 and r < 16:
-          tholes.append((x, y))
-        elif r > 5 and r < 10:
-          dholes.append((x, y))
+        (xc, yc), radius = cv.minEnclosingCircle(cnt)
+        if radius > 350 and radius < 450:
+          card = cv.approxPolyDP(cnt, 10, True)
+          break
 
-      # sort tholes from left to right
-      tholes = sorted(tholes, key=lambda hole: hole[0])
-
-    if len(tholes) == 4:
-      # get transformation from left and right tholes
-      xl, yl = tholes[0]
-      xr, yr = tholes[3]
-
-      dist = sqrt(pow(xr-xl,2) + pow(yr-yl,2))
-      ppmm = dist / 220 # Abstand 220 mm
-
-      x0 = (xr+xl)/2
-      y0 = (yr+yl)/2
-      a = atan2(yr-yl, xr-xl)
-
-      # calc real and image points from outer binding holes
-      zoom = 5
-      width = zoom * 254
-      height = zoom * 70
-      margin = 20
-
-      coords = [(-116, -24), (-116, +24), (+116, -24), (+116, +24)]
-      sources = []
-      targets = []
-
-      for xr, yr in coords:
-          dx = ppmm*xr*1.01
-          dy = ppmm*yr
-          x = x0 + dx*cos(a) - dy*sin(a)
-          y = y0 + dx*sin(a) + dy*cos(a)
-          xh, yh = nearestPoint(dholes, x, y)
-
-          sources.append([xh, yh])
-          targets.append([(2*margin+width)/2 + zoom*xr, (2*margin+height)/2 + zoom*yr])
-
-      matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
-      warp = cv.warpPerspective(image, matrix, (2*margin+width, 2*margin+height))
-
-      # find holes in transformed image
-      image = warp.copy()
-      gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-      _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
-      contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-
-      # cv.drawContours(image, contours, -1, (0,255,255),1)
-
+      # warp the card and find tholes and dholes inside the card
+      tholes = []
       dholes = []
-      for cnt in contours:
-        (x, y), r = cv.minEnclosingCircle(cnt)
-        if r > 5 and r < 10:
-          # filter out binding holes
-          isbhole = False
-          for xh, yh in [(-116, -24), (-116, -12), (-116, 12), (-116, 24), (0, -24), (0, -12), (0, 12), (0, 24), (116, -24), (116, -12), (116, 12), (116, 24) ]:
-            if cv.pointPolygonTest(cnt, ((2*margin+width)/2 + zoom*xh, (2*margin+height)/2 + zoom*yh), False) >= 0:
-              isbhole = True
-              break
-          if not isbhole:
-            dholes.append(cnt)
+      if card is not None and len(card) == 4:
+        (x, y), r = cv.minEnclosingCircle(card)
+        sources = [[0,720],[1280,720],[0,0],[1280,0]]
+        targets = [[2*margin,2*margin], [2*margin+width, 2*margin], [2*margin,2*margin+height], [2*margin+width, 2*margin+height]]
 
-      # cv.drawContours(image, dholes, -1, (0,0,255), 1)
-
-      data = []
-      for i in range(0,60):
-        row = []
-        for j in range(0,16):
-          x = (2*margin+width)/2 + zoom*4*i - zoom*120
-          y = (2*margin+height)/2 + zoom*4*j - zoom*30
-
-          match = False
-          for cnt in dholes:
-            if cv.pointPolygonTest(cnt, (x,y), False) >= 0:
-              match = True
-              break
-
-          row.append(1 if match else 0)
-
-          if ref:
-            color = (0, 255, 0) if match and ref["data"][i][j] == 1 or not match and ref["data"][i][j] == 0 else (0,0,255)
+        for i in range(4):
+          xc = card[i][0][0]
+          yc = card[i][0][1]
+          if xc < x:
+            if yc < sources[0][1]:
+              sources[0] = [xc,yc]
+            if yc > sources[2][1]:
+              sources[2] = [xc,yc]
           else:
-            color = (255,255,255) if match else (0,0,0)
+            if yc < sources[1][1]:
+              sources[1] = [xc,yc]
+            if yc > sources[3][1]:
+              sources[3] = [xc,yc]
 
-          cv.circle(image, (int(x), int(y)), 7, color, 1)
+        matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
+        image = cv.warpPerspective(image, matrix, (4*margin+width, 4*margin+height))
 
-        data.append(row)
-
-      # create card
-      card = {
-        "name": name,
-        "type": "880",
-        "data": data,
-      }
-      
-
-    cv.imshow("image", image)
-
-    k = cv.waitKey(1)
-
-    # Abbruch mit ESCAPE
-    if k == 27:
-      break
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
+        contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
   
-    # Okay mit RETURN
-    if k == 13:
-      if warp is not None:
-        cv.imwrite(path+f"/stamps/{name}.png", warp)
+        # cv.drawContours(image, contours, -1, (0,255,255),1)
 
-      if card is not None:
-        stamps = [card]
-        for stamp in readStamps(path):
-          if stamp["name"] != name:
-            stamps.append(stamp)
-        writeStamps(path, stamps)
+        for cnt in contours:
+          (x, y), r = cv.minEnclosingCircle(cnt)
+          if r > 12 and r < 16:
+            tholes.append((x, y))
+          elif r > 5 and r < 10:
+            dholes.append((x, y))
 
-      break
+        # sort tholes from left to right
+        tholes = sorted(tholes, key=lambda hole: hole[0])
 
-  cv.destroyAllWindows()
-  camera.close()
+      if len(tholes) == 4:
+        # get transformation from left and right tholes
+        xl, yl = tholes[0]
+        xr, yr = tholes[3]
+
+        dist = sqrt(pow(xr-xl,2) + pow(yr-yl,2))
+        ppmm = dist / 220 # Abstand 220 mm
+
+        x0 = (xr+xl)/2
+        y0 = (yr+yl)/2
+        a = atan2(yr-yl, xr-xl)
+
+        # calc real and image points from outer binding holes
+        zoom = 5
+        width = zoom * 254
+        height = zoom * 70
+        margin = 20
+
+        coords = [(-116, -24), (-116, +24), (+116, -24), (+116, +24)]
+        sources = []
+        targets = []
+
+        for xr, yr in coords:
+            dx = ppmm*xr*1.01
+            dy = ppmm*yr
+            x = x0 + dx*cos(a) - dy*sin(a)
+            y = y0 + dx*sin(a) + dy*cos(a)
+            xh, yh = nearestPoint(dholes, x, y)
+
+            sources.append([xh, yh])
+            targets.append([(2*margin+width)/2 + zoom*xr, (2*margin+height)/2 + zoom*yr])
+
+        matrix = cv.getPerspectiveTransform(np.float32(sources), np.float32(targets))
+        warp = cv.warpPerspective(image, matrix, (2*margin+width, 2*margin+height))
+
+        # find holes in transformed image
+        image = warp.copy()
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        _, thresh = cv.threshold(gray, threshold, 255, cv.THRESH_BINARY)
+        contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+        # cv.drawContours(image, contours, -1, (0,255,255),1)
+
+        dholes = []
+        for cnt in contours:
+          (x, y), r = cv.minEnclosingCircle(cnt)
+          if r > 5 and r < 10:
+            # filter out binding holes
+            isbhole = False
+            for xh, yh in [(-116, -24), (-116, -12), (-116, 12), (-116, 24), (0, -24), (0, -12), (0, 12), (0, 24), (116, -24), (116, -12), (116, 12), (116, 24) ]:
+              if cv.pointPolygonTest(cnt, ((2*margin+width)/2 + zoom*xh, (2*margin+height)/2 + zoom*yh), False) >= 0:
+                isbhole = True
+                break
+            if not isbhole:
+              dholes.append(cnt)
+
+        # cv.drawContours(image, dholes, -1, (0,0,255), 1)
+
+        data = []
+        for i in range(0,60):
+          row = []
+          for j in range(0,16):
+            x = (2*margin+width)/2 + zoom*4*i - zoom*120
+            y = (2*margin+height)/2 + zoom*4*j - zoom*30
+
+            match = False
+            for cnt in dholes:
+              if cv.pointPolygonTest(cnt, (x,y), False) >= 0:
+                match = True
+                break
+
+            row.append(1 if match else 0)
+
+            if ref:
+              color = (0, 255, 0) if match and ref["data"][i][j] == 1 or not match and ref["data"][i][j] == 0 else (0,0,255)
+            else:
+              color = (255,255,255) if match else (0,0,0)
+
+            cv.circle(image, (int(x), int(y)), 7, color, 1)
+
+          data.append(row)
+
+        # create card
+        card = {
+          "name": name,
+          "type": "880",
+          "data": data,
+        }
+        
+
+      cv.imshow("image", image)
+
+      k = cv.waitKey(1)
+
+      # Abbruch mit ESCAPE
+      if k == 27:
+        break
+    
+      # Okay mit RETURN
+      if k == 13:
+        if warp is not None:
+          cv.imwrite(path+f"/stamps/{name}.png", warp)
+
+        if card is not None:
+          stamps = [card]
+          for stamp in readStamps(path):
+            if stamp["name"] != name:
+              stamps.append(stamp)
+          writeStamps(path, stamps)
+
+        break
+
+    cv.destroyAllWindows()
+    camera.close()
 
 
 def compareCards(card1, card2):
@@ -421,7 +608,7 @@ def compareCards(card1, card2):
 
 
 if __name__ == "__main__":
-  path = "c:/temp/jacq-suite/data/TH913_3523"
-  name = "A040"
+  path = "c:/temp/jacq-suite/data/jule1_ref"
+  name = "A001"
 
-  scanStamp(path, name, threshold=125)
+  scanStamp(path, name, threshold=125, type="400")

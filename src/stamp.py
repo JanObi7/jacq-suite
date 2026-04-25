@@ -283,11 +283,20 @@ class CardView(QWidget):
     self.setColumn(0)
 
   def setColumn(self, column):
-    if column >= 0 and column <= 60:
+    if self.card["type"] == "400":
+      minColumn = 0
+      maxColumn = 53
+      dotsPerColumn = 8
+    else:
+      minColumn = 0
+      maxColumn = 60
+      dotsPerColumn = 16
+
+    if column >= minColumn and column <= maxColumn:
       self.column = column
       self.update()
 
-      for i in range(16):
+      for i in range(dotsPerColumn):
         if self.card["data"][self.column][i] == 1:
           self.hardware.press(i)
         else:
@@ -329,7 +338,7 @@ class CardView(QWidget):
     self.setColumn(idx)
 
   def scanStamp(self):
-    scanStamp(self.project.path, self.card["name"], self.card)
+    scanStamp(self.project.path, self.card["name"], self.card, type=self.card["type"])
 
     self.stamps = self.project.readStamps()
 
@@ -363,77 +372,155 @@ class CardView(QWidget):
 
     z = 4
 
-    x0 = int(self.width()/2)-126*z
-    y0 = int(self.height()/2)-20-68*z
 
     if self.card:
 
-      painter.fillRect(x0,y0,252*z,68*z,QColor("gray"))
-      painter.setBrush(QColor("black"))
+      if self.card["type"] == "400":
+        # 400er card
+        x0 = int(self.width()/2)-202*z
+        y0 = int(self.height()/2)-20-58*z
 
-      # set binding holes
-      for x in [10*z,10*z+116*z,10*z+116*z+116*z]:
-        for y in [10*z, 22*z, 46*z, 58*z]:
-          painter.drawEllipse(QPoint(x0+x, y0+y), int(3*z/2), int(3*z/2))
+        painter.fillRect(x0,y0,404*z,58*z,QColor("gray"))
+        painter.setBrush(QColor("black"))
 
-      # set fixing holes
-      for x in [10*z+6*z,10*z+116*z-6*z,10*z+116*z+6*z,10*z+116*z+116*z-6*z]:
-        painter.drawEllipse(QPoint(x0+x, y0+34*z), int(6*z/2), int(6*z/2))
+        # set binding holes
+        for x in [8*z,8*z+190*z,8*z+190*z+196*z]:
+          for y in [8*z, 50*z]:
+            painter.drawEllipse(QPoint(x0+x, y0+y), int(5*z/2), int(5*z/2))
 
-      # set data holes
-      for c in range(60):
-        for r in range(16):
-          if self.card["data"][c][r] == 1:
-            painter.drawEllipse(QPoint(x0+6*z+4*z*c, y0+4*z+4*z*r), int(3*z/2), int(3*z/2))
+        # set fixing holes
+        for x in [17*z,17*z+366*z]:
+          painter.drawEllipse(QPoint(x0+x, y0+29*z), int(9*z/2), int(9*z/2))
 
-      # draw card number
-      painter.drawText(x0+120*z,y0-4*z,self.card["name"])
+        # set data holes
+        for c in range(54):
+          for r in range(8):
+            if self.card["data"][c][r] == 1:
+              painter.drawEllipse(QPoint(int(x0+21*z+6.75*z*c), int(y0+5*z+6.75*z*r)), int(5*z/2), int(5*z/2))
 
-      # draw selection
-      painter.setPen(Qt.PenStyle.NoPen)
-      painter.setBrush(QColor(255,0,0,100))
-      painter.drawRect(x0+4*z+4*z*self.column, y0+0, 4*z+1, 68*z)
+        # draw card number
+        painter.drawText(x0+190*z,y0-4*z,self.card["name"])
+
+        # draw selection
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(255,0,0,100))
+        painter.drawRect(int(x0+17.625*z+6.75*z*self.column), int(y0+0), int(6.75*z+1), int(58*z))
+
+      else:
+        # 880er card
+        x0 = int(self.width()/2)-126*z
+        y0 = int(self.height()/2)-20-68*z
+
+        painter.fillRect(x0,y0,252*z,68*z,QColor("gray"))
+        painter.setBrush(QColor("black"))
+
+        # set binding holes
+        for x in [10*z,10*z+116*z,10*z+116*z+116*z]:
+          for y in [10*z, 22*z, 46*z, 58*z]:
+            painter.drawEllipse(QPoint(x0+x, y0+y), int(3*z/2), int(3*z/2))
+
+        # set fixing holes
+        for x in [10*z+6*z,10*z+116*z-6*z,10*z+116*z+6*z,10*z+116*z+116*z-6*z]:
+          painter.drawEllipse(QPoint(x0+x, y0+34*z), int(6*z/2), int(6*z/2))
+
+        # set data holes
+        for c in range(60):
+          for r in range(16):
+            if self.card["data"][c][r] == 1:
+              painter.drawEllipse(QPoint(x0+6*z+4*z*c, y0+4*z+4*z*r), int(3*z/2), int(3*z/2))
+
+        # draw card number
+        painter.drawText(x0+120*z,y0-4*z,self.card["name"])
+
+        # draw selection
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(255,0,0,100))
+        painter.drawRect(x0+4*z+4*z*self.column, y0+0, 4*z+1, 68*z)
 
     else:
       painter.setPen("black")
       painter.setBrush(Qt.BrushStyle.NoBrush)
       painter.drawRect(x0,y0,252*z,68*z)
-
-    x0 = int(self.width()/2)-126*z
-    y0 = int(self.height()/2)+20
 
     if self.stamp:
-      painter.fillRect(x0,y0,252*z,68*z,QColor("gray"))
-      painter.setBrush(QColor("black"))
+      if self.stamp["type"] == "400":
+        # 400er card
+        x0 = int(self.width()/2)-202*z
+        y0 = int(self.height()/2)+20
 
-      # set binding holes
-      for x in [10*z,10*z+116*z,10*z+116*z+116*z]:
-        for y in [10*z, 22*z, 46*z, 58*z]:
-          painter.drawEllipse(QPoint(x0+x, y0+y), int(3*z/2), int(3*z/2))
+        painter.fillRect(x0,y0,404*z,58*z,QColor("gray"))
+        painter.setBrush(QColor("black"))
 
-      # set fixing holes
-      for x in [10*z+6*z,10*z+116*z-6*z,10*z+116*z+6*z,10*z+116*z+116*z-6*z]:
-        painter.drawEllipse(QPoint(x0+x, y0+34*z), int(6*z/2), int(6*z/2))
+        # set binding holes
+        for x in [8*z,8*z+190*z,8*z+190*z+196*z]:
+          for y in [8*z, 50*z]:
+            painter.drawEllipse(QPoint(x0+x, y0+y), int(5*z/2), int(5*z/2))
 
-      # set data holes
-      for c in range(60):
-        for r in range(16):
-          if self.stamp["data"][c][r] == 1:
-            painter.setBrush(blackbrush)
-          else:
-            painter.setBrush(nobrush)
+        # set fixing holes
+        for x in [17*z,17*z+366*z]:
+          painter.drawEllipse(QPoint(x0+x, y0+29*z), int(9*z/2), int(9*z/2))
 
-          if self.stamp["data"][c][r] != self.card["data"][c][r]:
-            painter.setPen(redpen2)
-          else:
-            painter.setPen(greenpen2)
+        # set data holes
+        for c in range(54):
+          for r in range(8):
+            if self.stamp["data"][c][r] == 1:
+              painter.setBrush(blackbrush)
+            else:
+              painter.setBrush(nobrush)
 
-          painter.drawEllipse(QPoint(x0+6*z+4*z*c, y0+4*z+4*z*r), int(3*z/2), int(3*z/2))
+            if self.stamp["data"][c][r] != self.card["data"][c][r]:
+              painter.setPen(redpen2)
+            else:
+              painter.setPen(greenpen2)
+
+            painter.drawEllipse(QPoint(int(x0+21*z+6.75*z*c), int(y0+5*z+6.75*z*r)), int(5*z/2), int(5*z/2))
+
+      else:
+        # 880er card
+        x0 = int(self.width()/2)-126*z
+        y0 = int(self.height()/2)+20
+
+        painter.fillRect(x0,y0,252*z,68*z,QColor("gray"))
+        painter.setBrush(QColor("black"))
+
+        # set binding holes
+        for x in [10*z,10*z+116*z,10*z+116*z+116*z]:
+          for y in [10*z, 22*z, 46*z, 58*z]:
+            painter.drawEllipse(QPoint(x0+x, y0+y), int(3*z/2), int(3*z/2))
+
+        # set fixing holes
+        for x in [10*z+6*z,10*z+116*z-6*z,10*z+116*z+6*z,10*z+116*z+116*z-6*z]:
+          painter.drawEllipse(QPoint(x0+x, y0+34*z), int(6*z/2), int(6*z/2))
+
+        # set data holes
+        for c in range(60):
+          for r in range(16):
+            if self.stamp["data"][c][r] == 1:
+              painter.setBrush(blackbrush)
+            else:
+              painter.setBrush(nobrush)
+
+            if self.stamp["data"][c][r] != self.card["data"][c][r]:
+              painter.setPen(redpen2)
+            else:
+              painter.setPen(greenpen2)
+
+            painter.drawEllipse(QPoint(x0+6*z+4*z*c, y0+4*z+4*z*r), int(3*z/2), int(3*z/2))
 
     else:
-      painter.setPen("black")
-      painter.setBrush(Qt.BrushStyle.NoBrush)
-      painter.drawRect(x0,y0,252*z,68*z)
+      print(self.project.config["program"])
+      if self.project.config["program"]["config"] == "1x400":
+        x0 = int(self.width()/2)-202*z
+        y0 = int(self.height()/2)+20
+        painter.setPen("black")
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(x0,y0,404*z,58*z)
+      else:
+        x0 = int(self.width()/2)-126*z
+        y0 = int(self.height()/2)+20
+        painter.setPen("black")
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(x0,y0,252*z,68*z)
 
     painter.end()
 
@@ -471,7 +558,7 @@ class CardStamper(QMainWindow):
     close_action.triggered.connect(self.close)
 
     self.setWindowTitle("Karten stanzen")
-    self.resize(1300,800)
+    self.resize(1800,800)
 
     spacer = QWidget()
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

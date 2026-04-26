@@ -384,7 +384,7 @@ class CardView(QWidget):
         painter.setBrush(QColor("black"))
 
         # set binding holes
-        for x in [8*z,8*z+190*z,8*z+190*z+196*z]:
+        for x in [8*z,8*z+188.5*z,8*z+188.5*z+197.5*z]:
           for y in [8*z, 50*z]:
             painter.drawEllipse(QPoint(x0+x, y0+y), int(5*z/2), int(5*z/2))
 
@@ -452,7 +452,7 @@ class CardView(QWidget):
         painter.setBrush(QColor("black"))
 
         # set binding holes
-        for x in [8*z,8*z+190*z,8*z+190*z+196*z]:
+        for x in [8*z,8*z+188.5*z,8*z+188.5*z+197.5*z]:
           for y in [8*z, 50*z]:
             painter.drawEllipse(QPoint(x0+x, y0+y), int(5*z/2), int(5*z/2))
 

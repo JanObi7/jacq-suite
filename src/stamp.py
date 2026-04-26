@@ -508,7 +508,6 @@ class CardView(QWidget):
             painter.drawEllipse(QPoint(x0+6*z+4*z*c, y0+4*z+4*z*r), int(3*z/2), int(3*z/2))
 
     else:
-      print(self.project.config["program"])
       if self.project.config["program"]["config"] == "1x400":
         x0 = int(self.width()/2)-202*z
         y0 = int(self.height()/2)+20
